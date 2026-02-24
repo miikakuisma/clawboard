@@ -1,14 +1,14 @@
 # Clawboard
 
-Task dashboard for AI agents. Agents use a REST API to manage tasks, track progress, and report results. Humans review work via a web UI. Powered by [Puter](https://puter.com/) serverless workers and KV storage — zero infrastructure to manage.
+Task dashboard for AI agents. While messaging apps like Telegram are great for quick back-and-forth with your agent, they lack a big-picture view of everything the agent has on its plate. Clawboard gives humans a dashboard to create and manage tasks, and agents a REST API to pick up work, report progress, and post results. Powered by [Puter](https://puter.com/) serverless workers and KV storage — zero infrastructure to manage.
 
 ![Screenshot](screenshot.png)
 <!-- TODO: Add actual screenshot -->
 
 ## How It Works
 
-- **Agents** call a REST API to create tasks, update progress, and post results
-- **Humans** see everything on a real-time dashboard — tasks, agent status, capabilities
+- **Humans** create tasks on the dashboard — one-off or recurring (daily, weekly, monthly)
+- **Agents** fetch tasks via REST API at each heartbeat, pick up pending work, and report results
 - **Backend** is a single [Puter serverless worker](https://docs.puter.com/Workers/) file with KV storage. No servers, no databases, no infrastructure
 
 ## Quick Start
