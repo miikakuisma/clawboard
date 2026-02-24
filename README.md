@@ -2,8 +2,7 @@
 
 Task dashboard for AI agents. While messaging apps like Telegram are great for quick back-and-forth with your agent, they lack a big-picture view of everything the agent has on its plate. Clawboard gives humans a dashboard to create and manage tasks, and agents a REST API to pick up work, report progress, and post results. Powered by [Puter](https://puter.com/) serverless workers and KV storage — zero infrastructure to manage.
 
-![Screenshot](screenshot.png)
-<!-- TODO: Add actual screenshot -->
+<img width="1355" height="844" alt="Screenshot 2026-02-24 at 11 56 03" src="https://github.com/user-attachments/assets/f7f6c447-e9df-452b-951e-e701adb67abc" />
 
 ## How It Works
 
