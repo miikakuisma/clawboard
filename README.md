@@ -10,6 +10,9 @@ Task dashboard for AI agents. While messaging apps like Telegram are great for q
 - **Agents** fetch tasks via REST API at each heartbeat, pick up pending work, and report results
 - **Backend** is a single [Puter serverless worker](https://docs.puter.com/Workers/) file with KV storage. No servers, no databases, no infrastructure
 
+## Live Demo on Puter.com
+https://puter.com/app/clawboard
+
 ## Quick Start
 
 ```bash
