@@ -29,7 +29,7 @@ The app opens with a setup wizard that deploys the backend worker to Puter and c
 The recommended way to develop Clawboard is inside the Puter desktop. This gives you full Puter SDK access and avoids CORS issues between your local dev server and the Puter worker.
 
 1. Fork and clone the repo, then `npm install`
-2. Go to [puter.com](https://puter.com/) and create an app (Developer Center → Create App)
+2. Go to [puter.com](https://puter.com/) and create an app (Dev Center → Create App)
 3. Set the app's **Index URL** to `http://localhost:3000`
 4. Run `npm run dev` locally
 5. Open your app inside the Puter desktop
