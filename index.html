@@ -1,0 +1,20 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=0, viewport-fit=cover" />
+    <title>Clawboard</title>
+    <script src="https://js.puter.com/v2/"></script>
+  </head>
+  <body>
+    <div id="root">
+      <div id="loading-overlay" style="display:flex;align-items:center;justify-content:center;position:fixed;inset:0;background:var(--color-bg,#0f1117);z-index:9999">
+        <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,.15);border-top-color:#6366f1;border-radius:50%;animation:sp .8s linear infinite"></div>
+        <style>@keyframes sp{to{transform:rotate(360deg)}}</style>
+      </div>
+      <app-shell style="display:none"></app-shell>
+    </div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,525 @@
+heartbeat-view {
+  display: block;
+}
+
+/* Status Section */
+.heartbeat-status-section {
+  margin-bottom: 24px;
+}
+
+.status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-bottom: 8px;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.status-avatar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-circle-sm {
+  width: 36px;
+  height: 36px;
+  background: var(--color-accent);
+  color: var(--text);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.online-dot-sm {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 10px;
+  height: 10px;
+  background: var(--color-success);
+  border: 2px solid var(--surface-raised);
+  border-radius: 50%;
+}
+
+.status-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.status-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.status-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.thread-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.thread-count {
+  font-weight: 500;
+  color: var(--color-accent);
+}
+
+.thread-info-btn {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thread-info-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.thread-info-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.last-heartbeat {
+  color: var(--text-subtle);
+}
+
+.heartbeat-interval {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+}
+
+.heartbeat-interval svg {
+  width: 12px;
+  height: 12px;
+}
+
+.interval-change-btn {
+  background: none;
+  border: none;
+  color: var(--text-subtle);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+}
+
+.interval-change-btn:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.interval-change-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.heartbeat-interval-editor {
+  padding: 16px 20px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.interval-editor-content label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.interval-editor-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.interval-editor-row select {
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  flex: 1;
+}
+
+.interval-editor-row button {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.interval-editor-row button.primary {
+  background: var(--color-accent);
+  color: white;
+  border-color: var(--color-accent);
+}
+
+.interval-editor-row button.primary:hover {
+  background: var(--color-accent-hover);
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: var(--color-success);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.1); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Error State */
+.heartbeat-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.heartbeat-error .error-icon {
+  color: var(--text-muted);
+}
+
+.heartbeat-error .error-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.heartbeat-error p {
+  margin: 0;
+  color: var(--text-muted);
+}
+
+.retry-heartbeat-btn {
+  padding: 8px 16px;
+  background: var(--color-accent);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  margin-top: 8px;
+}
+
+.retry-heartbeat-btn:hover {
+  background: var(--color-accent-hover);
+}
+
+/* Content Section */
+.heartbeat-content-section {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Content Header */
+.heartbeat-content-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  color: var(--text);
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+}
+
+.heartbeat-content-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.heartbeat-content-title h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.heartbeat-content-title p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.edit-heartbeat-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--color-accent);
+  color: var(--text);
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.edit-heartbeat-btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.edit-heartbeat-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Content Display */
+.heartbeat-content-display {
+  padding: 20px;
+}
+
+.heartbeat-content-display pre {
+  margin: 0;
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  background: var(--surface-raised);
+  padding: 16px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle);
+}
+
+/* Edit Mode */
+.heartbeat-edit-header {
+  padding: 20px 20px 0 20px;
+}
+
+.heartbeat-edit-header h3 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.heartbeat-edit-header p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.heartbeat-edit-form {
+  padding: 0 20px 20px 20px;
+}
+
+.heartbeat-input-group {
+  margin-bottom: 16px;
+}
+
+.heartbeat-input-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.heartbeat-input-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-raised);
+  color: var(--text);
+  font-family: 'SF Mono', 'Monaco', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 200px;
+}
+
+.heartbeat-input-group textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-alpha);
+}
+
+.heartbeat-input-group textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.7;
+}
+
+.heartbeat-edit-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.cancel-edit-btn, .save-heartbeat-btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.cancel-edit-btn:hover {
+  background: var(--surface-hover);
+}
+
+.save-heartbeat-btn.primary {
+  background: var(--color-accent);
+  color: var(--text);
+  border-color: var(--color-accent);
+}
+
+.save-heartbeat-btn.primary:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.save-heartbeat-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Heartbeat Prompt Section */
+.heartbeat-prompt-section {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.heartbeat-prompt-section h4 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.heartbeat-prompt-section > p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.heartbeat-prompt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.prompt-input-group textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  resize: vertical;
+  min-height: 80px;
+}
+
+.prompt-input-group textarea:focus {
+  outline: none;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 2px var(--color-accent-alpha);
+}
+
+.prompt-input-group textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.prompt-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.send-heartbeat-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--color-accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.send-heartbeat-btn:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.send-heartbeat-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.send-heartbeat-btn svg {
+  width: 16px;
+  height: 16px;
+}

@@ -1,0 +1,35 @@
+{
+  "name": "clawboard",
+  "version": "26.2.20",
+  "description": "Task dashboard for AI agents — REST API + vanilla Web Components UI, powered by Puter",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://github.com/miikakuisma/clawboard",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miikakuisma/clawboard.git"
+  },
+  "keywords": [
+    "ai-agents",
+    "dashboard",
+    "tasks",
+    "web-components",
+    "puter",
+    "serverless"
+  ],
+  "scripts": {
+    "dev": "vite --port 3000 --host",
+    "build": "vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.13.0",
+    "eslint": "^9.13.0",
+    "globals": "^15.11.0",
+    "vite": "^5.4.10",
+    "vitest": "^4.0.15"
+  }
+}
