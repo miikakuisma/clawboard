@@ -24,7 +24,7 @@ export class AppShell extends HTMLElement {
           <heartbeat-view></heartbeat-view>
         </div>
         <div class="view SettingsPanel" hidden>
-          <test-panel></test-panel>
+          <settings-panel></settings-panel>
         </div>
       </main>
     `

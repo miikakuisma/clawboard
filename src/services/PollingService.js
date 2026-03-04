@@ -169,7 +169,7 @@ class PollingService {
       const data = await api[config.apiFn]()
       store.setSectionData(config.storeKey, { [config.dataKey]: data, loading: false })
     } catch (e) {
-      // Silently ignore poll errors — stale data is better than broken UI
+      console.warn(`[Poll] Failed to fetch ${section}:`, e.message || e)
     }
   }
 
