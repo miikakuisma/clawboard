@@ -1,5 +1,5 @@
 import { store } from '@/Store.js'
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import './Sidebar.css'
 
@@ -71,12 +71,12 @@ export class Sidebar extends HTMLElement {
       <div class="sidebar-header">
         <div class="assistant-avatar">
           <div class="avatar-circle" style="background-color: ${assistant.color}">
-            ${assistant.avatar ? 
-              `<img src="${assistant.avatar}" alt="${assistant.name}" class="avatar-image" />` : 
+            ${assistant.avatar ?
+              raw(`<img src="${assistant.avatar}" alt="${assistant.name}" class="avatar-image" />`) :
               assistant.initials
             }
           </div>
-          <span class="online-dot"></span>
+          <span class="online-dot" aria-label="Online"></span>
         </div>
         <div class="assistant-info">
           <span class="assistant-name">${assistant.name}</span>
@@ -84,21 +84,21 @@ export class Sidebar extends HTMLElement {
         </div>
       </div>
 
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav" aria-label="Main navigation">
         ${NAV_ITEMS.map(item => {
           const isTask = item.id === 'tasks'
           const badgeCount = isTask ? (badges.tasks || 0) : 0
           return html`
             <button class="nav-item ${currentView === item.id ? 'active' : ''}" data-nav="${item.id}">
-              <span class="nav-icon">${icons[item.icon]}</span>
+              <span class="nav-icon">${raw(icons[item.icon])}</span>
               <span class="nav-label">${item.label}</span>
               ${isTask ? html`
-                <span class="nav-spinner" data-spinner="tasks" ${badges.tasksRunning ? '' : 'hidden'}>${icons.spinner}</span>
-                <span class="nav-badge" data-badge="tasks" ${badgeCount === 0 ? 'hidden' : ''}>${badgeCount}</span>
+                <span class="nav-spinner" data-spinner="tasks" ${raw(badges.tasksRunning ? '' : 'hidden')}>${raw(icons.spinner)}</span>
+                <span class="nav-badge" data-badge="tasks" ${raw(badgeCount === 0 ? 'hidden' : '')}>${badgeCount}</span>
               ` : ''}
             </button>
           `
-        }).join('')}
+        })}
       </nav>
 
       <div class="sidebar-footer">

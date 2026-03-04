@@ -1,6 +1,6 @@
 import { store } from '@/Store.js'
 import { api } from '@/services/api.js'
-import { html } from '@/utils/html.js'
+import { html, raw, sanitizeUrl } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import { relativeTime, timeUntil } from '@/utils/formatters.js'
 import './TasksView.css'
@@ -228,6 +228,12 @@ export class TasksView extends HTMLElement {
    * @private
    */
   _renderTasks(items) {
+    // Prune expanded tasks Set to prevent memory leak
+    const currentIds = new Set(items.map(t => t.id))
+    for (const id of this._expandedTasks) {
+      if (!currentIds.has(id)) this._expandedTasks.delete(id)
+    }
+
     // Separate recurring from one-off tasks
     const recurringTasks = items.filter(t => t.repetition)
     const oneOffTasks = items.filter(t => !t.repetition)
@@ -249,105 +255,32 @@ export class TasksView extends HTMLElement {
       recurringSection.style.display = recurringTasks.length > 0 ? '' : 'none'
     }
     if (recurringList) {
-      recurringList.innerHTML = recurringTasks.map(task => this._renderRecurringTaskItem(task)).join('')
+      recurringList.innerHTML = recurringTasks.map(task => this._renderTaskItem(task)).join('')
     }
 
     // Render current tasks
     currentList.innerHTML = currentTasks.length === 0 ? html`
       <div class="empty-state">
-        <span class="empty-icon">${icons.checkCircle}</span>
+        <span class="empty-icon">${raw(icons.checkCircle)}</span>
         <p>No current tasks</p>
       </div>
-    ` : currentTasks.map(task => this._renderTaskItem(task, 'current')).join('')
+    ` : currentTasks.map(task => this._renderTaskItem(task)).join('')
 
     // Render pending tasks
     pendingList.innerHTML = pendingTasks.length === 0 ? html`
       <div class="empty-state">
-        <span class="empty-icon">${icons.clock}</span>
+        <span class="empty-icon">${raw(icons.clock)}</span>
         <p>No pending tasks</p>
       </div>
-    ` : pendingTasks.map(task => this._renderTaskItem(task, 'pending')).join('')
+    ` : pendingTasks.map(task => this._renderTaskItem(task)).join('')
 
-    // Render completed tasks
+    // Render completed tasks (show last 20)
     completedList.innerHTML = completedTasks.length === 0 ? html`
       <div class="empty-state">
-        <span class="empty-icon">${icons.checkCircle}</span>
+        <span class="empty-icon">${raw(icons.checkCircle)}</span>
         <p>No completed tasks yet</p>
       </div>
-    ` : completedTasks.slice(0, 20).map(task => this._renderTaskItem(task, 'completed')).join('') // Show last 20 completed
-  }
-
-  /**
-   * Renders a single one-off task row with status icon, metadata, and expandable details.
-   * @param {Object} task
-   * @param {'current'|'pending'|'completed'} type
-   * @returns {string} HTML string
-   * @private
-   */
-  _renderTaskItem(task, type) {
-    const isExpanded = this._expandedTasks.has(task.id)
-    const isEditing = this._editingTaskId === task.id
-    const statusIcon = type === 'completed' ? icons.checkCircle :
-                      type === 'current' ? icons.spinner :
-                      icons.circle
-
-    if (isEditing) return this._renderEditForm(task)
-
-    return html`
-      <div class="task-item ${type}" data-task-id="${task.id}">
-        <div class="task-header">
-          <div class="task-main">
-            <span class="task-status-icon ${type}" data-action="toggle-task" data-task-id="${task.id}">${statusIcon}</span>
-            <div class="task-content">
-              <span class="task-title">${task.title || task.description}</span>
-              <span class="task-meta">
-                ${type === 'completed' && task.completedAt ? html`Completed ${relativeTime(task.completedAt)}` : ''}
-                ${type === 'current' && task.startedAt ? html`Started ${relativeTime(task.startedAt)}` : ''}
-                ${type === 'pending' && task.createdAt ? html`Created ${relativeTime(task.createdAt)}` : ''}
-              </span>
-            </div>
-          </div>
-          <div class="task-actions">
-            <button class="task-edit-btn" data-action="edit-task" data-task-id="${task.id}" title="Edit task">
-              ${icons.editSquare}
-            </button>
-            <button class="task-delete-btn" data-action="delete-task" data-task-id="${task.id}" title="Delete task">
-              ${icons.delete}
-            </button>
-            <button class="task-expand-btn" data-action="toggle-details" data-task-id="${task.id}">
-              ${isExpanded ? icons.chevronDown : icons.chevronRight}
-            </button>
-          </div>
-        </div>
-
-        ${isExpanded ? html`
-          <div class="task-details">
-            <div class="task-description">
-              <strong>Description:</strong>
-              <p>${task.description}</p>
-            </div>
-
-            ${task.links && task.links.length > 0 ? html`
-              <div class="task-links">
-                <strong>Related Links:</strong>
-                <ul>
-                  ${task.links.map(link => html`
-                    <li><a href="${link.url}" target="_blank" rel="noopener">${link.title}</a></li>
-                  `).join('')}
-                </ul>
-              </div>
-            ` : ''}
-
-            ${task.notes ? html`
-              <div class="task-notes">
-                <strong>Notes:</strong>
-                <p>${task.notes}</p>
-              </div>
-            ` : ''}
-          </div>
-        ` : ''}
-      </div>
-    `
+    ` : completedTasks.slice(0, 20).map(task => this._renderTaskItem(task)).join('')
   }
 
   /**
@@ -363,17 +296,17 @@ export class TasksView extends HTMLElement {
   }
 
   /**
-   * Renders a single recurring task row with repetition badge and status.
+   * Renders a single task row (one-off or recurring) with status icon, metadata,
+   * and expandable details. Detects recurring tasks via task.repetition.
    * @param {Object} task
    * @returns {string} HTML string
    * @private
    */
-  _renderRecurringTaskItem(task) {
+  _renderTaskItem(task) {
+    const isRecurring = !!task.repetition
     const isExpanded = this._expandedTasks.has(task.id)
     const isEditing = this._editingTaskId === task.id
-    const cooldown = this._getCooldownInfo(task)
-    const statusLabel = task.status === 'completed' ? 'Completed' :
-                        task.status === 'in_progress' ? 'In Progress' : 'Pending'
+
     const statusClass = task.status === 'completed' ? 'completed' :
                         task.status === 'in_progress' ? 'current' : 'pending'
     const statusIcon = task.status === 'completed' ? icons.checkCircle :
@@ -382,38 +315,57 @@ export class TasksView extends HTMLElement {
 
     if (isEditing) return this._renderEditForm(task)
 
-    // Cooldown badge: show when task is pending/in_progress and cooldown hasn't expired
-    let cooldownHtml = ''
-    if (cooldown && cooldown.onCooldown && task.status === 'pending') {
-      cooldownHtml = html`<span class="task-cooldown-badge on-cooldown">${icons.clock} Next run ${timeUntil(cooldown.nextRunAfter)}</span>`
-    } else if (cooldown && cooldown.onCooldown && task.status === 'in_progress') {
-      cooldownHtml = html`<span class="task-cooldown-warning">${icons.warning} Early run (cooldown ends ${timeUntil(cooldown.nextRunAfter)})</span>`
+    // Recurring-specific: cooldown badge and status label
+    let recurringMeta = ''
+    if (isRecurring) {
+      const cooldown = this._getCooldownInfo(task)
+      const statusLabel = task.status === 'completed' ? 'Completed' :
+                          task.status === 'in_progress' ? 'In Progress' : 'Pending'
+
+      let cooldownHtml = ''
+      if (cooldown && cooldown.onCooldown && task.status === 'pending') {
+        cooldownHtml = html`<span class="task-cooldown-badge on-cooldown">${raw(icons.clock)} Next run ${timeUntil(cooldown.nextRunAfter)}</span>`
+      } else if (cooldown && cooldown.onCooldown && task.status === 'in_progress') {
+        cooldownHtml = html`<span class="task-cooldown-warning">${raw(icons.warning)} Early run (cooldown ends ${timeUntil(cooldown.nextRunAfter)})</span>`
+      }
+
+      recurringMeta = html`
+        <span class="task-recurring-badge">${raw(icons.restore)} ${REPETITION_LABELS[task.repetition] || task.repetition}</span>
+        <span class="task-recurring-status ${statusClass}">${statusLabel}</span>
+        ${task.completedAt ? html`<span>Last completed ${relativeTime(task.completedAt)}</span>` : ''}
+        ${cooldownHtml}
+      `
+    }
+
+    // One-off meta: time info based on status
+    let oneOffMeta = ''
+    if (!isRecurring) {
+      if (statusClass === 'completed' && task.completedAt) oneOffMeta = html`Completed ${relativeTime(task.completedAt)}`
+      else if (statusClass === 'current' && task.startedAt) oneOffMeta = html`Started ${relativeTime(task.startedAt)}`
+      else if (statusClass === 'pending' && task.createdAt) oneOffMeta = html`Created ${relativeTime(task.createdAt)}`
     }
 
     return html`
-      <div class="task-item recurring ${statusClass}" data-task-id="${task.id}">
+      <div class="task-item ${isRecurring ? 'recurring' : ''} ${statusClass}" data-task-id="${task.id}">
         <div class="task-header">
           <div class="task-main">
-            <span class="task-status-icon ${statusClass}" data-action="toggle-task" data-task-id="${task.id}">${statusIcon}</span>
+            <span class="task-status-icon ${statusClass}" data-action="toggle-task" data-task-id="${task.id}">${raw(statusIcon)}</span>
             <div class="task-content">
               <span class="task-title">${task.title || task.description}</span>
               <span class="task-meta">
-                <span class="task-recurring-badge">${icons.restore} ${REPETITION_LABELS[task.repetition] || task.repetition}</span>
-                <span class="task-recurring-status ${statusClass}">${statusLabel}</span>
-                ${task.completedAt ? html`<span>Last completed ${relativeTime(task.completedAt)}</span>` : ''}
-                ${cooldownHtml}
+                ${isRecurring ? recurringMeta : oneOffMeta}
               </span>
             </div>
           </div>
           <div class="task-actions">
             <button class="task-edit-btn" data-action="edit-task" data-task-id="${task.id}" title="Edit task">
-              ${icons.editSquare}
+              ${raw(icons.editSquare)}
             </button>
             <button class="task-delete-btn" data-action="delete-task" data-task-id="${task.id}" title="Delete task">
-              ${icons.delete}
+              ${raw(icons.delete)}
             </button>
-            <button class="task-expand-btn" data-action="toggle-details" data-task-id="${task.id}">
-              ${isExpanded ? icons.chevronDown : icons.chevronRight}
+            <button class="task-expand-btn" data-action="toggle-details" data-task-id="${task.id}" aria-expanded="${isExpanded}">
+              ${raw(isExpanded ? icons.chevronDown : icons.chevronRight)}
             </button>
           </div>
         </div>
@@ -430,8 +382,8 @@ export class TasksView extends HTMLElement {
                 <strong>Related Links:</strong>
                 <ul>
                   ${task.links.map(link => html`
-                    <li><a href="${link.url}" target="_blank" rel="noopener">${link.title}</a></li>
-                  `).join('')}
+                    <li><a href="${sanitizeUrl(link.url)}" target="_blank" rel="noopener">${link.title}</a></li>
+                  `)}
                 </ul>
               </div>
             ` : ''}
@@ -467,8 +419,8 @@ export class TasksView extends HTMLElement {
             <label>Repetition:</label>
             <select>
               ${REPETITION_OPTIONS.map(opt => html`
-                <option value="${opt.value}" ${(task.repetition || '') === opt.value ? 'selected' : ''}>${opt.label}</option>
-              `).join('')}
+                <option value="${opt.value}" ${raw((task.repetition || '') === opt.value ? 'selected' : '')}>${opt.label}</option>
+              `)}
             </select>
           </div>
 
@@ -492,7 +444,7 @@ export class TasksView extends HTMLElement {
     if (!this._showNewTaskForm) {
       newTaskSection.innerHTML = html`
         <button class="new-task-btn" data-action="show-new-task">
-          ${icons.plus} Add New Task
+          ${raw(icons.plus)} Add New Task
         </button>
       `
     } else {
@@ -521,7 +473,7 @@ export class TasksView extends HTMLElement {
               <select id="new-task-repetition">
                 ${REPETITION_OPTIONS.map(opt => html`
                   <option value="${opt.value}">${opt.label}</option>
-                `).join('')}
+                `)}
               </select>
             </div>
 
@@ -541,7 +493,7 @@ export class TasksView extends HTMLElement {
 
     this.innerHTML = html`
       <div class="page-header">
-        <span class="page-header-icon">${icons.tasks}</span>
+        <span class="page-header-icon">${raw(icons.tasks)}</span>
         <div class="page-header-text">
           <h1>Tasks</h1>
           <p>Track ${assistant.name}'s work - past, present, and future</p>

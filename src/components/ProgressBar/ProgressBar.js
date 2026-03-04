@@ -23,16 +23,20 @@ export class ProgressBar extends HTMLElement {
   /** Updates the fill width to match the current `progress` attribute. */
   update() {
     const fill = this.querySelector('.progress-fill')
+    const track = this.querySelector('.progress-track')
     if (fill) {
-      fill.style.width = `${(parseFloat(this.getAttribute('progress') || 0)) * 100}%`
+      const pct = Math.round((parseFloat(this.getAttribute('progress') || 0)) * 100)
+      fill.style.width = `${pct}%`
+      if (track) track.setAttribute('aria-valuenow', pct)
     }
   }
 
   render() {
     const progress = parseFloat(this.getAttribute('progress') || 0)
+    const pct = Math.round(progress * 100)
     this.innerHTML = `
-      <div class="progress-track">
-        <div class="progress-fill" style="width: ${progress * 100}%"></div>
+      <div class="progress-track" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-fill" style="width: ${pct}%"></div>
       </div>
     `
   }

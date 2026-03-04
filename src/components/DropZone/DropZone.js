@@ -1,4 +1,4 @@
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import './DropZone.css'
 
@@ -55,7 +55,7 @@ export class DropZone extends HTMLElement {
     this.innerHTML = html`
       <div class="dropzone-area">
         <input type="file" class="dropzone-input" multiple hidden />
-        <span class="dropzone-icon">${icons.upload}</span>
+        <span class="dropzone-icon">${raw(icons.upload)}</span>
         <span class="dropzone-text">Drop files here or click to browse</span>
       </div>
     `

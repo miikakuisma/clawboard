@@ -1,5 +1,5 @@
 import { store } from '@/Store.js'
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import './ThemeToggle.css'
 
@@ -45,7 +45,7 @@ export class ThemeToggle extends HTMLElement {
     const label = THEME_LABELS[theme] || 'System'
     this.innerHTML = html`
       <button class="theme-toggle-btn" title="Toggle theme">
-        <span class="theme-icon" title="Colors: ${label}">${icons[icon]}</span>
+        <span class="theme-icon" title="Colors: ${label}">${raw(icons[icon])}</span>
       </button>
     `
   }

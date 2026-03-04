@@ -1,4 +1,4 @@
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import './SearchBar.css'
 
@@ -32,7 +32,7 @@ export class SearchBar extends HTMLElement {
     const placeholder = this.getAttribute('placeholder') || 'Search...'
     this.innerHTML = html`
       <div class="search-wrapper">
-        <span class="search-icon">${icons.search}</span>
+        <span class="search-icon">${raw(icons.search)}</span>
         <input type="text" class="search-input" placeholder="${placeholder}" />
       </div>
     `

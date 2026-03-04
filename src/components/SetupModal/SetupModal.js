@@ -1,4 +1,4 @@
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { store } from '@/Store.js'
 import './SetupModal.css'
 
@@ -21,6 +21,19 @@ export class SetupModal extends HTMLElement {
     this._credentials = null
     this._resolve = null
     this._promise = new Promise(resolve => { this._resolve = resolve })
+
+    // Single delegated click handler instead of per-render listeners
+    this.addEventListener('click', (e) => {
+      if (e.target.closest('#setup-install-btn')) this._runInstall()
+      else if (e.target.closest('#setup-manual-btn')) this._manualInstall()
+      else if (e.target.closest('#setup-retry-btn')) {
+        if (this._mode === 'install') this._runInstall()
+        else this._runUpdate()
+      }
+      else if (e.target.closest('#setup-skip-btn')) this._finish()
+      else if (e.target.closest('#setup-continue-btn')) this._finish()
+      else if (e.target.closest('#setup-copy-msg-btn')) this._copyMessage()
+    })
 
     this.render()
 
@@ -174,7 +187,7 @@ export class SetupModal extends HTMLElement {
 
         ${started || this._error ? html`
           <div class="setup-modal-steps">
-            ${this._renderSteps(steps)}
+            ${raw(this._renderSteps(steps))}
           </div>
         ` : ''}
 
@@ -191,14 +204,6 @@ export class SetupModal extends HTMLElement {
         ` : ''}
       </div>
     `
-
-    this.querySelector('#setup-install-btn')?.addEventListener('click', () => this._runInstall())
-    this.querySelector('#setup-manual-btn')?.addEventListener('click', () => this._manualInstall())
-    this.querySelector('#setup-retry-btn')?.addEventListener('click', () => {
-      if (isInstall) this._runInstall()
-      else this._runUpdate()
-    })
-    this.querySelector('#setup-skip-btn')?.addEventListener('click', () => this._finish())
   }
 
   /** Renders the success screen with the copyable agent message and continue button. @private */
@@ -219,8 +224,5 @@ export class SetupModal extends HTMLElement {
         </div>
       </div>
     `
-
-    this.querySelector('#setup-continue-btn').addEventListener('click', () => this._finish())
-    this.querySelector('#setup-copy-msg-btn').addEventListener('click', () => this._copyMessage())
   }
 }

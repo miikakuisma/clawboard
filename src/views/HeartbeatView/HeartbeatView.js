@@ -1,6 +1,6 @@
 import { store } from '@/Store.js'
 import { api } from '@/services/api.js'
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import { relativeTime } from '@/utils/formatters.js'
 import './HeartbeatView.css'
@@ -107,7 +107,7 @@ These threads ensure ${assistant.name} can multitask and respond quickly while h
     if (statusSection) {
       statusSection.innerHTML = html`
         <div class="heartbeat-error">
-          <span class="error-icon">${icons.circle}</span>
+          <span class="error-icon">${raw(icons.circle)}</span>
           <div class="error-content">
             <p><strong>Unable to load heartbeat data</strong></p>
             <p>${this._error}</p>
@@ -156,7 +156,7 @@ These threads ensure ${assistant.name} can multitask and respond quickly while h
           <div class="status-avatar">
             <div class="avatar-circle-sm" style="background-color: ${assistant.color}">
               ${assistant.avatar ?
-                `<img src="${assistant.avatar}" alt="${assistant.name}" class="avatar-image" />` :
+                raw(`<img src="${assistant.avatar}" alt="${assistant.name}" class="avatar-image" />`) :
                 assistant.initials
               }
             </div>
@@ -167,12 +167,12 @@ These threads ensure ${assistant.name} can multitask and respond quickly while h
             <div class="status-details">
               <span class="thread-info">
                 <span class="thread-count">${threadCount} threads</span>
-                <button class="thread-info-btn" title="What are these threads?">${icons.info}</button>
+                <button class="thread-info-btn" title="What are these threads?">${raw(icons.info)}</button>
               </span>
               <span class="last-heartbeat">Last heartbeat: ${relativeTime(lastHeartbeat)}</span>
               <span class="heartbeat-interval">
-                ${icons.clock} Checks in every ${interval} min
-                <button class="interval-change-btn" title="Change check-in interval">${icons.edit}</button>
+                ${raw(icons.clock)} Checks in every ${interval} min
+                <button class="interval-change-btn" title="Change check-in interval">${raw(icons.edit)}</button>
               </span>
             </div>
           </div>
@@ -199,11 +199,11 @@ These threads ensure ${assistant.name} can multitask and respond quickly while h
         <label>Agent check-in interval:</label>
         <div class="interval-editor-row">
           <select class="interval-select">
-            <option value="15" ${currentInterval === 15 ? 'selected' : ''}>Every 15 min</option>
-            <option value="30" ${currentInterval === 30 ? 'selected' : ''}>Every 30 min</option>
-            <option value="60" ${currentInterval === 60 ? 'selected' : ''}>Every 60 min (recommended)</option>
-            <option value="120" ${currentInterval === 120 ? 'selected' : ''}>Every 2 hours</option>
-            <option value="360" ${currentInterval === 360 ? 'selected' : ''}>Every 6 hours</option>
+            <option value="15" ${raw(currentInterval === 15 ? 'selected' : '')}>Every 15 min</option>
+            <option value="30" ${raw(currentInterval === 30 ? 'selected' : '')}>Every 30 min</option>
+            <option value="60" ${raw(currentInterval === 60 ? 'selected' : '')}>Every 60 min (recommended)</option>
+            <option value="120" ${raw(currentInterval === 120 ? 'selected' : '')}>Every 2 hours</option>
+            <option value="360" ${raw(currentInterval === 360 ? 'selected' : '')}>Every 6 hours</option>
           </select>
           <button class="interval-save-btn primary">Save</button>
           <button class="interval-cancel-btn">Cancel</button>
@@ -257,7 +257,7 @@ These threads ensure ${assistant.name} can multitask and respond quickly while h
 
     this.innerHTML = html`
       <div class="page-header">
-        <span class="page-header-icon">${icons.heartbeat}</span>
+        <span class="page-header-icon">${raw(icons.heartbeat)}</span>
         <div class="page-header-text">
           <h1>Heartbeat</h1>
           <p>Monitor ${assistant.name}'s status and configure periodic checks</p>

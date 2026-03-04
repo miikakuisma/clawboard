@@ -1,4 +1,4 @@
-import { html } from '@/utils/html.js'
+import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import { store } from '@/Store.js'
 import { api } from '@/services/api.js'
@@ -34,7 +34,7 @@ export class SettingsPanel extends HTMLElement {
     this._bindEvents()
     this._checkWorkerStatus()
     this._loadApiKey()
-    
+
     // Initialize dynamic content
     setTimeout(() => {
       this._renderAssistantProfile()
@@ -69,6 +69,22 @@ export class SettingsPanel extends HTMLElement {
   }
 
   /**
+   * Copies text to clipboard and shows brief "Copied!" feedback on the button.
+   * @param {string} text - Text to copy
+   * @param {string} btnSelector - CSS selector for the feedback button
+   * @private
+   */
+  async _copyToClipboard(text, btnSelector) {
+    if (!text) return
+    await navigator.clipboard.writeText(text)
+    const btn = this.querySelector(btnSelector)
+    if (!btn) return
+    const orig = btn.textContent
+    btn.textContent = 'Copied!'
+    setTimeout(() => btn.textContent = orig, 1500)
+  }
+
+  /**
    * Pings the worker heartbeat endpoint and updates the connection status indicator.
    * @private
    */
@@ -89,7 +105,7 @@ export class SettingsPanel extends HTMLElement {
       const response = await fetch(`${workerUrl}/api/heartbeat`, {
         headers: this._apiKey ? { 'Authorization': `Bearer ${this._apiKey}` } : {}
       })
-      
+
       if (response.ok) {
         this.querySelector('.generate-api-key-btn').style.display = 'none'
         this.querySelector('.save-api-key-btn').style.display = 'none'
@@ -170,7 +186,7 @@ export class SettingsPanel extends HTMLElement {
     const accessId = accessItem.dataset.id
     const details = accessItem.querySelector('.access-details')
     const icon = accessItem.querySelector('.access-expand-icon')
-    
+
     if (this._expandedAccess.has(accessId)) {
       this._expandedAccess.delete(accessId)
       details.hidden = true
@@ -191,17 +207,17 @@ export class SettingsPanel extends HTMLElement {
         <h4>Request Access Changes</h4>
         <p>Describe what access you'd like to modify for ${assistant.name}</p>
       </div>
-      
+
       <form class="access-request-form">
         <div class="form-group">
-          <textarea 
-            id="access-request" 
+          <textarea
+            id="access-request"
             placeholder="E.g., 'Can you list all your access and capabilities', 'Add access to my calendar for scheduling' or 'Remove GitHub write access' or 'Add Spotify integration'"
             rows="4"
             required
           ></textarea>
         </div>
-        
+
         <div class="form-actions">
           <button type="button" class="cancel-request-btn">Cancel</button>
           <button type="submit" class="submit-request-btn primary">Send Request</button>
@@ -212,16 +228,16 @@ export class SettingsPanel extends HTMLElement {
     // Bind form events
     const form = formSection.querySelector('.access-request-form')
     const cancelBtn = formSection.querySelector('.cancel-request-btn')
-    
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault()
       await this._submitAccessRequest()
     })
-    
+
     cancelBtn.addEventListener('click', () => {
       formSection.innerHTML = html`
         <button class="manage-access-btn">
-          ${icons.plus} Request Access Changes
+          ${raw(icons.plus)} Request Access Changes
         </button>
       `
     })
@@ -230,15 +246,15 @@ export class SettingsPanel extends HTMLElement {
   /** Creates a task for the agent containing the access change request. @private */
   async _submitAccessRequest() {
     const { assistant } = store.getState()
-    const textarea = document.querySelector('#access-request')
+    const textarea = this.querySelector('#access-request')
     const request = textarea.value.trim()
-    
+
     if (!request) {
       alert('Please describe the access changes you need')
       return
     }
 
-    const submitBtn = document.querySelector('.submit-request-btn')
+    const submitBtn = this.querySelector('.submit-request-btn')
     const originalText = submitBtn.textContent
     submitBtn.disabled = true
     submitBtn.textContent = 'Sending...'
@@ -246,19 +262,19 @@ export class SettingsPanel extends HTMLElement {
     try {
       // Create an access request as a task for the agent
       await api.createTask({ description: `ACCESS REQUEST: ${request}` })
-      
+
       // Clear form and show success
-      const formSection = document.querySelector('.manage-access-form')
+      const formSection = this.querySelector('.manage-access-form')
       formSection.innerHTML = html`
         <div class="request-success">
-          <span class="success-icon">${icons.checkCircle}</span>
+          <span class="success-icon">${raw(icons.checkCircle)}</span>
           <p>Access request sent to ${assistant.name}!</p>
           <button class="manage-access-btn">
-            ${icons.plus} Request More Changes
+            ${raw(icons.plus)} Request More Changes
           </button>
         </div>
       `
-      
+
     } catch (error) {
       console.error('Failed to submit access request:', error)
       alert('Failed to send request. Please try again.')
@@ -283,7 +299,7 @@ export class SettingsPanel extends HTMLElement {
   async _saveAssistantProfile() {
     const form = this.querySelector('.profile-edit-form')
     const formData = new FormData(form)
-    
+
     const profile = {
       name: formData.get('name').trim() || 'Assistant',
       initials: formData.get('initials').trim() || 'A',
@@ -314,7 +330,7 @@ export class SettingsPanel extends HTMLElement {
 
     this._editingProfile = false
     this._renderAssistantProfile()
-    
+
     // Show success feedback
     const btn = this.querySelector('.save-profile-btn')
     const originalText = btn.textContent
@@ -405,7 +421,7 @@ export class SettingsPanel extends HTMLElement {
     if (this._accessError) {
       accessSection.innerHTML = html`
         <div class="access-error">
-          <span class="error-icon">${icons.circle}</span>
+          <span class="error-icon">${raw(icons.circle)}</span>
           <div class="error-content">
             <p><strong>Unable to load access data</strong></p>
             <p>${this._accessError}</p>
@@ -421,7 +437,7 @@ export class SettingsPanel extends HTMLElement {
     if (this._accessData.length === 0) {
       accessSection.innerHTML = html`
         <div class="access-empty">
-          <span class="empty-icon">${icons.plus}</span>
+          <span class="empty-icon">${raw(icons.plus)}</span>
           <p>No access configured yet</p>
           <p>This appears to be a fresh installation. You agent should populate this section shortly</p>
         </div>
@@ -433,7 +449,7 @@ export class SettingsPanel extends HTMLElement {
       <div class="access-item" data-id="${access.id || access.name.toLowerCase().replace(/[^a-z0-9]/g, '-')}">
         <div class="access-item-header">
           <div class="access-main">
-            <span class="access-icon">${icons[access.icon] || icons.circle}</span>
+            <span class="access-icon">${raw(icons[access.icon] || icons.circle)}</span>
             <div class="access-info">
               <span class="access-name">${access.name}</span>
               <span class="access-type">${access.type}</span>
@@ -441,12 +457,12 @@ export class SettingsPanel extends HTMLElement {
           </div>
           <div class="access-status">
             <span class="status-indicator ${access.status}"></span>
-            <span class="access-expand-icon">${icons.chevronRight}</span>
+            <span class="access-expand-icon">${raw(icons.chevronRight)}</span>
           </div>
         </div>
-        
+
         <div class="access-description">${access.description}</div>
-        
+
         <div class="access-details" hidden>
           ${this._renderAccessDetails(access.details)}
         </div>
@@ -462,12 +478,10 @@ export class SettingsPanel extends HTMLElement {
    */
   _renderAccessDetails(details) {
     if (typeof details === 'string') {
-      // If details is a markdown string, render it as-is
       return html`<div class="access-details-markdown">${details}</div>`
     }
-    
+
     if (typeof details === 'object' && details !== null) {
-      // If details is an object, render key-value pairs
       return Object.entries(details).map(([key, value]) => html`
         <div class="detail-item">
           <span class="detail-key">${key.charAt(0).toUpperCase() + key.slice(1)}:</span>
@@ -492,21 +506,21 @@ export class SettingsPanel extends HTMLElement {
           <h4>Edit Assistant Profile</h4>
           <p>Customize your AI assistant's identity and appearance</p>
         </div>
-        
+
         <form class="profile-edit-form">
           <div class="form-row">
             <div class="form-group">
               <label for="profile-name">Assistant Name:</label>
-              <input type="text" id="profile-name" name="name" value="${assistant.name}" 
+              <input type="text" id="profile-name" name="name" value="${assistant.name}"
                      placeholder="Nova" required />
             </div>
             <div class="form-group">
               <label for="profile-initials">Avatar Initials:</label>
-              <input type="text" id="profile-initials" name="initials" value="${assistant.initials}" 
+              <input type="text" id="profile-initials" name="initials" value="${assistant.initials}"
                      placeholder="N" maxlength="3" required />
             </div>
           </div>
-          
+
           <div class="form-row">
             <div class="form-group">
               <label for="profile-color">Avatar Color:</label>
@@ -514,18 +528,18 @@ export class SettingsPanel extends HTMLElement {
             </div>
             <div class="form-group">
               <label for="profile-description">Description:</label>
-              <input type="text" id="profile-description" name="description" value="${assistant.description}" 
+              <input type="text" id="profile-description" name="description" value="${assistant.description}"
                      placeholder="AI Assistant" />
             </div>
           </div>
-          
+
           <div class="form-group">
             <label for="profile-avatar">Avatar Image URL (optional):</label>
-            <input type="url" id="profile-avatar" name="avatar" value="${assistant.avatar || ''}" 
+            <input type="url" id="profile-avatar" name="avatar" value="${assistant.avatar || ''}"
                    placeholder="https://example.com/avatar.png" />
             <small>Leave empty to use initials with the selected color</small>
           </div>
-          
+
           <div class="profile-actions">
             <button type="button" class="reset-profile-btn">Reset to Default</button>
             <div class="profile-main-actions">
@@ -540,8 +554,8 @@ export class SettingsPanel extends HTMLElement {
         <div class="profile-display">
           <div class="profile-preview">
             <div class="profile-avatar" style="background-color: ${assistant.color}">
-              ${assistant.avatar ? 
-                `<img src="${assistant.avatar}" alt="${assistant.name}" />` : 
+              ${assistant.avatar ?
+                raw(`<img src="${assistant.avatar}" alt="${assistant.name}" />`) :
                 assistant.initials
               }
             </div>
@@ -551,7 +565,7 @@ export class SettingsPanel extends HTMLElement {
             </div>
           </div>
           <button class="edit-profile-btn">
-            ${icons.edit} Edit Profile
+            ${raw(icons.edit)} Edit Profile
           </button>
         </div>
       `
@@ -656,13 +670,7 @@ export class SettingsPanel extends HTMLElement {
   /** Copies the agent onboarding message to the clipboard. @private */
   async _copyAgentMessage() {
     const msg = this._getAgentMessage()
-    if (!msg) return
-    await navigator.clipboard.writeText(msg)
-    const btn = this.querySelector('.copy-agent-msg-btn')
-    if (!btn) return
-    const orig = btn.textContent
-    btn.textContent = 'Copied!'
-    setTimeout(() => btn.textContent = orig, 1500)
+    if (msg) await this._copyToClipboard(msg, '.copy-agent-msg-btn')
   }
 
   /** Called by ViewManager when this view becomes visible. Refreshes dynamic sections. */
@@ -723,23 +731,12 @@ export class SettingsPanel extends HTMLElement {
 
   /** Copies the worker URL to the clipboard. @private */
   async _copyWorkerUrl() {
-    const url = this._getWorkerUrl()
-    if (!url) return
-    await navigator.clipboard.writeText(url)
-    const btn = this.querySelector('[data-action="copy-url"]')
-    const orig = btn.textContent
-    btn.textContent = 'Copied!'
-    setTimeout(() => btn.textContent = orig, 1500)
+    await this._copyToClipboard(this._getWorkerUrl(), '[data-action="copy-url"]')
   }
 
   /** Copies the API key to the clipboard. @private */
   async _copyApiKey() {
-    if (!this._apiKey) return
-    await navigator.clipboard.writeText(this._apiKey)
-    const btn = this.querySelector('[data-action="copy-key"]')
-    const orig = btn.textContent
-    btn.textContent = 'Copied!'
-    setTimeout(() => btn.textContent = orig, 1500)
+    await this._copyToClipboard(this._apiKey, '[data-action="copy-key"]')
   }
 
   /** Persists the API key to localStorage and puter.kv, then re-checks worker connectivity. @private */
@@ -750,7 +747,7 @@ export class SettingsPanel extends HTMLElement {
     localStorage.setItem('sb_api_key', key)
     if (typeof puter !== 'undefined' && puter.kv) puter.kv.set('sb_api_key', key)
     this._checkWorkerStatus()
-    
+
     const btn = this.querySelector('.save-api-key-btn')
     const originalText = btn.textContent
     btn.textContent = 'Saved!'
@@ -818,10 +815,10 @@ export class SettingsPanel extends HTMLElement {
   /** Renders the full settings page: access, profile, config, API testing, and danger zone. */
   render() {
     const workerUrl = this._getWorkerUrl()
-    
+
     this.innerHTML = html`
       <div class="page-header">
-        <span class="page-header-icon">${icons.settings}</span>
+        <span class="page-header-icon">${raw(icons.settings)}</span>
         <div class="page-header-text">
           <h1>Settings</h1>
           <p>Configure dashboard and manage Nova's access & capabilities</p>
@@ -831,14 +828,14 @@ export class SettingsPanel extends HTMLElement {
       <div class="settings-section">
         <h3>${store.getAssistantProfile().name}'s Access & Capabilities</h3>
         <p>Services and systems ${store.getAssistantProfile().name} currently has access to</p>
-        
+
         <div class="access-grid">
           <!-- Dynamic content will be loaded here -->
         </div>
 
         <div class="manage-access-form">
           <button class="manage-access-btn">
-            ${icons.plus} Request Access Changes
+            ${raw(icons.plus)} Request Access Changes
           </button>
         </div>
       </div>
@@ -846,14 +843,14 @@ export class SettingsPanel extends HTMLElement {
       <div class="settings-section">
         <h3>Assistant Profile</h3>
         <p>Customize your AI assistant's identity and appearance in the dashboard</p>
-        
+
         <div class="assistant-profile-section"></div>
       </div>
 
       <div class="settings-section">
         <h3>Dashboard Configuration</h3>
         <p>Connect to your Puter worker that provides the dashboard API</p>
-        
+
         <div class="worker-status"></div>
 
         <div class="auto-install-section"></div>
@@ -884,16 +881,16 @@ export class SettingsPanel extends HTMLElement {
       <div class="settings-section">
         <h3>API Testing</h3>
         <p>Test dashboard API endpoints to verify connectivity</p>
-        
+
         <div class="endpoints-grid">
           ${API_ENDPOINTS.map(endpoint => html`
-            <button class="test-endpoint-btn" 
-                    data-method="${endpoint.method}" 
+            <button class="test-endpoint-btn"
+                    data-method="${endpoint.method}"
                     data-path="${endpoint.path}">
               <span class="endpoint-method ${endpoint.method.toLowerCase()}">${endpoint.method}</span>
               <span class="endpoint-label">${endpoint.label}</span>
             </button>
-          `).join('')}
+          `)}
         </div>
 
         <div class="test-result-section">
@@ -908,7 +905,7 @@ export class SettingsPanel extends HTMLElement {
         <h3>Danger Zone</h3>
         <p>Permanently reset your Clawboard instance. This will delete all tasks, heartbeat data, access entries, and assistant profile from the server, clear all local settings, and restart the setup wizard.</p>
         <button class="reset-clawboard-btn">
-          ${icons.delete} Reset Clawboard
+          ${raw(icons.delete)} Reset Clawboard
         </button>
       </div>
     `

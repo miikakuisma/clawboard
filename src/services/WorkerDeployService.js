@@ -147,8 +147,8 @@ export async function hydrateFromKV() {
     if (name) localStorage.setItem('clawboard_worker_name', name)
     if (theme) localStorage.setItem('theme', theme)
     if (codeHash) localStorage.setItem('worker_code_hash', codeHash)
-  } catch {
-    // Silently ignore — app will fall through to install modal if not configured
+  } catch (e) {
+    console.warn('[WorkerDeploy] KV hydration failed:', e?.message || e)
   }
 }
 

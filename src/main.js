@@ -68,7 +68,7 @@ customElements.define('app-sidebar', Sidebar)
 // Register views
 customElements.define('tasks-view', TasksView)
 customElements.define('heartbeat-view', HeartbeatView)
-customElements.define('test-panel', SettingsPanel)
+customElements.define('settings-panel', SettingsPanel)
 
 // Register shared components
 customElements.define('status-badge', StatusBadge)
@@ -124,7 +124,7 @@ async function init() {
     modal.setAttribute('mode', 'install')
     document.body.appendChild(modal)
     await modal.waitForComplete()
-    document.querySelector('test-panel')?.refresh()
+    document.querySelector('settings-panel')?.refresh()
   } else {
     // 7. Pre-load tasks + heartbeat before revealing UI
     await pollingService.fetchAll()
@@ -138,7 +138,7 @@ async function init() {
   }
 
   // 8. Refresh settings panel with restored/fetched data
-  document.querySelector('test-panel')?.refresh()
+  document.querySelector('settings-panel')?.refresh()
 
   // 9. Hide loading overlay, show app-shell
   document.getElementById('loading-overlay')?.remove()
