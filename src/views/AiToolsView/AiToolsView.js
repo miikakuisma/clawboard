@@ -148,7 +148,11 @@ export class AiToolsView extends HTMLElement {
 
       let outputText = ''
       if (log.output && log.output.textPreview) {
-        outputText = log.output.textPreview
+        if ((log.type === 'txt2img' || log.type === 'txt2speech') && log.filePath) {
+          outputText = '' // media preview is the output
+        } else {
+          outputText = log.output.textPreview
+        }
       }
 
       let previewHtml = ''
@@ -167,6 +171,7 @@ export class AiToolsView extends HTMLElement {
           <div class="ai-log-item-header">
             <span class="ai-log-type-badge">${raw(icons[meta.icon])} ${meta.label}</span>
             <span class="ai-log-time">${time}</span>
+            <span class="ai-log-expand-icon">${raw(icons[expanded ? 'chevronDown' : 'chevronRight'])}</span>
           </div>
           ${inputText ? html`<div class="ai-log-input">${inputText}</div>` : ''}
           ${outputText ? html`<div class="ai-log-output">${outputText}</div>` : ''}

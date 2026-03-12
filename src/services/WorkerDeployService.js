@@ -107,15 +107,23 @@ export async function deploy() {
 export async function hydrateFromKV() {
   if (typeof puter === 'undefined' || !puter.kv) return
 
+  // puter.kv.get() may return an object with a .value property instead of a plain string
+  const kvString = (v) => {
+    if (v == null) return null
+    if (typeof v === 'string') return v
+    if (typeof v === 'object' && v.value != null) return String(v.value)
+    return String(v)
+  }
+
   try {
     // Read everything from KV in one batch
-    let [url, name, apiKey, theme, codeHash] = await Promise.all([
+    let [url, name, apiKey, theme, codeHash] = (await Promise.all([
       puter.kv.get('sb_worker_url'),
       puter.kv.get('sb_worker_name'),
       puter.kv.get('sb_api_key'),
       puter.kv.get('sb_theme'),
       puter.kv.get('sb_worker_code_hash'),
-    ])
+    ])).map(kvString)
 
     // Backfill: if localStorage has values that KV doesn't, push them up
     const localUrl = localStorage.getItem('worker_url')

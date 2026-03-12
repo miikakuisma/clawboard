@@ -112,8 +112,16 @@
 .ai-log-time {
   font-size: 0.75rem;
   color: var(--color-text-secondary);
-  margin-left: auto;
 }
+
+.ai-log-expand-icon {
+  display: flex;
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  opacity: 0.5;
+}
+
+.ai-log-expand-icon svg { width: 16px; height: 16px; }
 
 .ai-log-input {
   margin-top: var(--spacing-xs);

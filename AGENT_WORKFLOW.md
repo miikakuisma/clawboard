@@ -265,7 +265,7 @@ POST /api/ai/txt2speech
 ### Speech to Text (speech2txt)
 ```bash
 POST /api/ai/speech2txt
-{ "audioBase64": "<base64-encoded audio>", "format": "optional", "model": "optional" }
+{ "audio": "<data URL or base64-encoded audio>", "model": "optional" }
 # Response: { "text": "Transcribed text...", "logId": "ai-log-..." }
 ```
 

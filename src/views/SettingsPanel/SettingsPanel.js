@@ -7,6 +7,13 @@ import './SettingsPanel.css'
 
 // Access data is now loaded dynamically from Puter KV via API
 
+const AI_ENDPOINTS = [
+  { type: 'img2txt', label: 'Image → Text', inputType: 'file', accept: 'image/*' },
+  { type: 'txt2img', label: 'Text → Image', inputType: 'text', placeholder: 'Describe the image to generate...' },
+  { type: 'txt2speech', label: 'Text → Speech', inputType: 'text', placeholder: 'Enter text to convert to speech...' },
+  { type: 'speech2txt', label: 'Speech → Text', inputType: 'file', accept: 'audio/*' },
+]
+
 const API_ENDPOINTS = [
   { method: 'GET', path: '/api/tasks', label: 'List Tasks' },
   { method: 'POST', path: '/api/tasks', label: 'Create Task' },
@@ -175,6 +182,9 @@ export class SettingsPanel extends HTMLElement {
         this._autoInstallWorker()
       } else if (e.target.closest('.copy-agent-msg-btn')) {
         this._copyAgentMessage()
+      } else if (e.target.closest('.test-ai-btn')) {
+        const btn = e.target.closest('.test-ai-btn')
+        await this._testAiEndpoint(btn.dataset.aiType, btn)
       } else if (e.target.closest('.reset-clawboard-btn')) {
         this._resetClawboard()
       }
@@ -812,6 +822,114 @@ export class SettingsPanel extends HTMLElement {
     }
   }
 
+  _readAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result) // full data URL
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async _testAiEndpoint(type, button) {
+    const workerUrl = this._getWorkerUrl()
+    if (!workerUrl) {
+      alert('Please configure the worker URL first')
+      return
+    }
+
+    const card = this.querySelector(`#ai-test-${type}`)
+    const resultArea = card.querySelector('.ai-test-result')
+    const input = card.querySelector(`[data-ai-input="${type}"]`)
+
+    const originalText = button.textContent
+    button.disabled = true
+    button.textContent = 'Testing...'
+    resultArea.innerHTML = ''
+
+    try {
+      let body = {}
+      let endpoint = ''
+
+      if (type === 'img2txt') {
+        const file = input.files?.[0]
+        if (!file) { alert('Please select an image file'); return }
+        // Send full data URI — worker passes it directly to puter.ai.img2txt
+        const dataUri = await new Promise((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(r.result)
+          r.onerror = reject
+          r.readAsDataURL(file)
+        })
+        body = { imageBase64: dataUri }
+        endpoint = '/api/ai/img2txt'
+      } else if (type === 'txt2img') {
+        const prompt = input.value.trim()
+        if (!prompt) { alert('Please enter a prompt'); return }
+        body = { prompt }
+        endpoint = '/api/ai/txt2img'
+      } else if (type === 'txt2speech') {
+        const text = input.value.trim()
+        if (!text) { alert('Please enter text'); return }
+        body = { text }
+        endpoint = '/api/ai/txt2speech'
+      } else if (type === 'speech2txt') {
+        const file = input.files?.[0]
+        if (!file) { alert('Please select an audio file'); return }
+        body = { audio: await this._readAsDataUrl(file) }
+        endpoint = '/api/ai/speech2txt'
+      }
+
+      const start = performance.now()
+      const response = await fetch(`${workerUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this._apiKey ? { 'Authorization': `Bearer ${this._apiKey}` } : {})
+        },
+        body: JSON.stringify(body)
+      })
+      const elapsed = Math.round(performance.now() - start)
+      const result = await response.json()
+
+      const statusClass = response.ok ? 'success' : 'error'
+      let contentHtml = ''
+
+      if (response.ok) {
+        if (type === 'img2txt' || type === 'speech2txt') {
+          const text = result.text || result.transcription || JSON.stringify(result, null, 2)
+          contentHtml = `<pre>${text}</pre>`
+        } else if (type === 'txt2img' && result.base64) {
+          contentHtml = `<img src="data:image/png;base64,${result.base64}" alt="Generated image" />`
+        } else if (type === 'txt2speech' && result.base64) {
+          contentHtml = `<audio controls src="data:audio/mpeg;base64,${result.base64}"></audio>`
+        } else {
+          contentHtml = `<pre>${JSON.stringify(result, null, 2)}</pre>`
+        }
+      } else {
+        contentHtml = `<pre>${result.error || JSON.stringify(result, null, 2)}</pre>`
+      }
+
+      resultArea.innerHTML = `
+        <div class="result-header">
+          <span class="result-status ${statusClass}">${response.status} ${response.statusText}</span>
+          <span class="result-endpoint">${elapsed}ms</span>
+        </div>
+        ${contentHtml}
+      `
+    } catch (error) {
+      resultArea.innerHTML = `
+        <div class="result-header">
+          <span class="result-status error">Error</span>
+        </div>
+        <pre>${error.message}</pre>
+      `
+    } finally {
+      button.disabled = false
+      button.textContent = originalText
+    }
+  }
+
   /** Renders the full settings page: access, profile, config, API testing, and danger zone. */
   render() {
     const workerUrl = this._getWorkerUrl()
@@ -898,6 +1016,29 @@ export class SettingsPanel extends HTMLElement {
           <div class="test-result">
             <div class="empty-result">Select an endpoint above to test</div>
           </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>AI API Testing</h3>
+        <p>Test AI proxy endpoints with file uploads and text inputs</p>
+        <div class="ai-test-grid">
+          ${AI_ENDPOINTS.map(ep => html`
+            <div class="ai-test-card" id="ai-test-${ep.type}">
+              <div class="ai-test-card-header">
+                <span class="endpoint-method post">POST</span>
+                <span>${ep.label}</span>
+              </div>
+              <div class="ai-test-input">
+                ${ep.inputType === 'file'
+                  ? raw(`<input type="file" accept="${ep.accept}" data-ai-input="${ep.type}" />`)
+                  : raw(`<textarea data-ai-input="${ep.type}" placeholder="${ep.placeholder}" rows="2"></textarea>`)
+                }
+              </div>
+              <button class="test-ai-btn" data-ai-type="${ep.type}">Test</button>
+              <div class="ai-test-result" id="ai-result-${ep.type}"></div>
+            </div>
+          `)}
         </div>
       </div>
 

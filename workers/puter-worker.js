@@ -57,10 +57,21 @@ async function checkAuth(request, user) {
   if (user) return true
   // External HTTP - check Bearer token
   const auth = request.headers.get('Authorization') || ''
-  if (!auth.startsWith('Bearer ')) return false
-  const token = auth.slice(7)
-  const storedKey = await me.puter.kv.get('sb_api_key')
-  return token === storedKey
+  if (auth.startsWith('Bearer ')) {
+    const token = auth.slice(7)
+    const storedKey = await me.puter.kv.get('sb_api_key')
+    if (token === storedKey) return true
+  }
+  // Fallback: ?auth= query param for browser media elements (<img>, <audio>)
+  try {
+    const url = new URL(request.url)
+    const queryAuth = url.searchParams.get('auth')
+    if (queryAuth) {
+      const storedKey = await me.puter.kv.get('sb_api_key')
+      if (queryAuth === storedKey) return true
+    }
+  } catch { /* ignore */ }
+  return false
 }
 
 // ─── Cooldown intervals for recurring tasks ───
@@ -122,7 +133,7 @@ const MANIFEST = {
     { method: 'POST', path: '/api/ai/img2txt', description: 'Analyze image with AI (OCR/description)', body: { imageBase64: 'string (base64-encoded image)' } },
     { method: 'POST', path: '/api/ai/txt2img', description: 'Generate image from text prompt', body: { prompt: 'string', provider: 'string (optional)', model: 'string (optional)' } },
     { method: 'POST', path: '/api/ai/txt2speech', description: 'Convert text to speech audio', body: { text: 'string', voice: 'string (optional)', provider: 'string (optional)' } },
-    { method: 'POST', path: '/api/ai/speech2txt', description: 'Transcribe audio to text', body: { audioBase64: 'string (base64-encoded audio)', format: 'string (optional)', model: 'string (optional)' } },
+    { method: 'POST', path: '/api/ai/speech2txt', description: 'Transcribe audio to text', body: { audio: 'string (data URL or base64-encoded audio)', model: 'string (optional)' } },
     { method: 'GET', path: '/api/ai/logs', description: 'List all AI usage logs (newest first)' },
     { method: 'DELETE', path: '/api/ai/logs', description: 'Clear all AI logs and stored files' },
     { method: 'GET', path: '/api/ai/files/:id', description: 'Serve a stored AI file (image/audio) by log ID' },
@@ -324,7 +335,7 @@ const MANIFEST = {
         → Decode the base64 audio and SEND IT to the user (e.g. as a voice message).
 
       POST /api/ai/speech2txt — Transcribe audio to text
-        Request:  { "audioBase64": "<base64-encoded audio>", "format": "mp3" }
+        Request:  { "audio": "<data URL or base64-encoded audio>" }
         Response: { "text": "Transcribed text content here.", "logId": "ai-log-..." }
         → Send the transcription text back to the user.
 
@@ -590,18 +601,13 @@ router.post("/api/ai/img2txt", async ({ request, user }) => {
   if (!body.imageBase64) return err('imageBase64 is required')
 
   const logId = generateId('ai-log')
-  const tempPath = `~/clawboard-ai/tmp-${logId}.png`
   try {
-    // Write temp file with absolute ~/  path — Puter AI needs filesystem paths
-    const imgBlob = new Blob([Uint8Array.from(atob(body.imageBase64), c => c.charCodeAt(0))], { type: 'image/png' })
-    await me.puter.fs.mkdir('~/clawboard-ai', { recursive: true })
-    await me.puter.fs.write(tempPath, imgBlob)
+    // Pass as data URL — puter.ai.img2txt accepts data URLs directly
+    let source = body.imageBase64
+    if (!source.startsWith('data:')) source = `data:image/png;base64,${source}`
 
-    const result = await me.puter.ai.img2txt(tempPath)
+    const result = await me.puter.ai.img2txt(source)
     const text = typeof result === 'string' ? result : (result.text || JSON.stringify(result))
-
-    // Cleanup temp file
-    try { await me.puter.fs.delete(tempPath) } catch { /* ignore */ }
 
     await putItem('sb_ai_log:', logId, {
       id: logId,
@@ -614,8 +620,6 @@ router.post("/api/ai/img2txt", async ({ request, user }) => {
 
     return json({ text, logId })
   } catch (e) {
-    // Cleanup temp file on error
-    try { await me.puter.fs.delete(tempPath) } catch { /* ignore */ }
     return err(`img2txt failed: ${e?.message || e?.error || JSON.stringify(e)}`, 500)
   }
 })
@@ -632,7 +636,21 @@ router.post("/api/ai/txt2img", async ({ request, user }) => {
     if (body.model) opts.model = body.model
 
     const result = await me.puter.ai.txt2img(body.prompt, opts)
-    const base64 = typeof result === 'string' ? result : (result.base64 || result)
+    let base64
+    if (typeof result === 'string') {
+      base64 = result
+    } else if (result?.src && typeof result.src === 'string') {
+      // HTMLImageElement — extract base64 from data URL src
+      base64 = result.src.includes(',') ? result.src.split(',')[1] : result.src
+    } else if (result instanceof Blob) {
+      const ab = await result.arrayBuffer()
+      const bytes = new Uint8Array(ab)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+      base64 = btoa(binary)
+    } else {
+      base64 = result?.base64 || String(result)
+    }
 
     // Store copy for UI browsing — use absolute ~/ paths
     let filePath = null
@@ -701,25 +719,19 @@ router.post("/api/ai/txt2speech", async ({ request, user }) => {
 router.post("/api/ai/speech2txt", async ({ request, user }) => {
   if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
   const body = await request.json()
-  if (!body.audioBase64) return err('audioBase64 is required')
+  if (!body.audio) return err('audio is required')
 
   const logId = generateId('ai-log')
-  const format = body.format || 'mp3'
   try {
-    const opts = {}
-    if (body.format) opts.format = body.format
+    const opts = { audio: body.audio }
     if (body.model) opts.model = body.model
-
-    const mimeType = format === 'wav' ? 'audio/wav' : format === 'ogg' ? 'audio/ogg' : 'audio/mpeg'
-    const audioBlob = new Blob([Uint8Array.from(atob(body.audioBase64), c => c.charCodeAt(0))], { type: mimeType })
-
-    const result = await me.puter.ai.speech2txt(audioBlob, opts)
+    const result = await me.puter.ai.speech2txt(opts)
     const text = typeof result === 'string' ? result : (result.text || JSON.stringify(result))
 
     await putItem('sb_ai_log:', logId, {
       id: logId,
       type: 'speech2txt',
-      input: { format: body.format || null, model: body.model || null },
+      input: { model: body.model || null },
       output: { textPreview: text.slice(0, 200) },
       filePath: null,
       createdAt: new Date().toISOString(),
