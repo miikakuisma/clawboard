@@ -23,6 +23,9 @@ export class AppShell extends HTMLElement {
         <div class="view heartbeat" hidden>
           <heartbeat-view></heartbeat-view>
         </div>
+        <div class="view aiTools" hidden>
+          <ai-tools-view></ai-tools-view>
+        </div>
         <div class="view SettingsPanel" hidden>
           <settings-panel></settings-panel>
         </div>

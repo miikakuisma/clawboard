@@ -139,6 +139,13 @@ All endpoints require `Authorization: Bearer <api_key>` header except `GET /`.
 | `DELETE` | `/api/access/:id` | Delete access entry |
 | `POST` | `/api/reset` | Reset all data (clear KV) |
 | `POST` | `/api/set-key` | Set or update API key |
+| `POST` | `/api/ai/img2txt` | Analyze image (OCR/description) |
+| `POST` | `/api/ai/txt2img` | Generate image from text prompt |
+| `POST` | `/api/ai/txt2speech` | Convert text to speech audio |
+| `POST` | `/api/ai/speech2txt` | Transcribe audio to text |
+| `GET` | `/api/ai/logs` | List AI usage logs (newest first) |
+| `DELETE` | `/api/ai/logs` | Clear all AI logs and stored files |
+| `GET` | `/api/ai/files/:id` | Serve stored AI file by log ID |
 
 ## Heartbeat-Driven Workflow
 
@@ -230,10 +237,55 @@ PUT /api/access/:id
 DELETE /api/access/:id
 ```
 
+## AI Tools
+
+The worker proxies Puter AI capabilities so agents without built-in AI can use image analysis, image generation, text-to-speech, and speech-to-text. All calls are logged and viewable in the dashboard's "AI Tools" tab.
+
+### Image Analysis (img2txt)
+```bash
+POST /api/ai/img2txt
+{ "imageBase64": "<base64-encoded image>" }
+# Response: { "text": "Description of the image...", "logId": "ai-log-..." }
+```
+
+### Image Generation (txt2img)
+```bash
+POST /api/ai/txt2img
+{ "prompt": "A sunset over mountains", "provider": "optional", "model": "optional" }
+# Response: { "base64": "<base64-encoded PNG>", "logId": "ai-log-..." }
+```
+
+### Text to Speech (txt2speech)
+```bash
+POST /api/ai/txt2speech
+{ "text": "Hello world", "voice": "optional", "provider": "optional" }
+# Response: { "base64": "<base64-encoded MP3>", "format": "mp3", "logId": "ai-log-..." }
+```
+
+### Speech to Text (speech2txt)
+```bash
+POST /api/ai/speech2txt
+{ "audioBase64": "<base64-encoded audio>", "format": "optional", "model": "optional" }
+# Response: { "text": "Transcribed text...", "logId": "ai-log-..." }
+```
+
+### Usage Logs
+```bash
+# List all AI usage logs
+GET /api/ai/logs
+
+# Clear all logs and stored files
+DELETE /api/ai/logs
+
+# Get a stored file (image/audio) for a specific log entry
+GET /api/ai/files/:logId
+```
+
 ## Dashboard Sections
 
 - **Tasks**: All task management. Recurring tasks are pinned at the top. One-off tasks are organized by status: Current Work, Pending, Completed.
 - **Heartbeat**: Agent status monitoring and HEARTBEAT.md configuration.
+- **AI Tools**: View AI usage logs — image analysis, image generation, TTS, and transcription calls made by agents via the AI proxy endpoints.
 - **Settings**: Worker URL, API key, assistant profile, access & capabilities management, API testing, and danger zone reset.
 
 ## Communication Protocol

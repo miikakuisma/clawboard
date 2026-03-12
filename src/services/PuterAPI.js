@@ -267,4 +267,19 @@ export const api = {
   async deleteAccess(id) {
     return await call('DELETE', `/api/access/${id}`)
   },
+
+  // ─── AI Tools ───
+
+  async getAiLogs() {
+    return await call('GET', '/api/ai/logs')
+  },
+
+  async deleteAiLogs() {
+    return await call('DELETE', '/api/ai/logs')
+  },
+
+  getAiFileUrl(logId) {
+    const baseUrl = getBaseUrl()
+    return `${baseUrl}/api/ai/files/${logId}`
+  },
 }

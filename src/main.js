@@ -17,6 +17,7 @@ import { Sidebar } from '@/layout/Sidebar.js'
 import { TasksView } from '@/views/TasksView/TasksView.js'
 import { HeartbeatView } from '@/views/HeartbeatView/HeartbeatView.js'
 import { SettingsPanel } from '@/views/SettingsPanel/SettingsPanel.js'
+import { AiToolsView } from '@/views/AiToolsView/AiToolsView.js'
 
 // Shared components
 import { StatusBadge } from '@/components/StatusBadge/StatusBadge.js'
@@ -69,6 +70,7 @@ customElements.define('app-sidebar', Sidebar)
 customElements.define('tasks-view', TasksView)
 customElements.define('heartbeat-view', HeartbeatView)
 customElements.define('settings-panel', SettingsPanel)
+customElements.define('ai-tools-view', AiToolsView)
 
 // Register shared components
 customElements.define('status-badge', StatusBadge)
@@ -87,9 +89,26 @@ async function init() {
 
   // 1. Loading overlay is already visible from HTML
 
-  // 2. Ensure Puter auth when running outside Puter's app iframe
+  // 2. Ensure Puter auth is ready before accessing KV/workers
   if (window.puter) {
-    if (window.puter.env !== 'app') {
+    if (window.puter.env === 'app') {
+      // Inside Puter iframe — SDK may not be ready yet, wait for auth
+      try {
+        await window.puter.auth.getUser()
+        console.log('[App] Puter auth ready')
+      } catch {
+        // Auth not ready — wait and retry
+        console.log('[App] Waiting for Puter auth...')
+        await new Promise(r => setTimeout(r, 1000))
+        try {
+          await window.puter.auth.getUser()
+          console.log('[App] Puter auth ready (after wait)')
+        } catch (e) {
+          console.warn('[App] Puter auth not available:', e?.message || e)
+        }
+      }
+    } else {
+      // Outside Puter iframe — show sign-in if needed
       if (!window.puter.auth.isSignedIn()) {
         const user = await showSignInOverlay()
         console.log('[App] User signed in:', user.username)
