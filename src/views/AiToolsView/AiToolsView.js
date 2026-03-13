@@ -3,6 +3,7 @@ import { api } from '@/services/api.js'
 import { html, raw } from '@/utils/html.js'
 import { icons } from '@/utils/icons.js'
 import { relativeTime } from '@/utils/formatters.js'
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 import './AiToolsView.css'
 
 const TYPE_META = {
@@ -157,11 +158,11 @@ export class AiToolsView extends HTMLElement {
 
       let previewHtml = ''
       if (log.type === 'txt2img' && log.filePath) {
-        const authKey = localStorage.getItem('sb_api_key')
+        const authKey = WorkerConfig.getApiKey()
         const src = `${api.getAiFileUrl(log.id)}?auth=${encodeURIComponent(authKey || '')}`
         previewHtml = `<div class="ai-log-preview${expanded ? ' expanded' : ''}"><img src="${src}" alt="Generated image" onerror="this.parentElement.innerHTML='<p class=\\'ai-media-error\\'>Image unavailable</p>'" /></div>`
       } else if (log.type === 'txt2speech' && log.filePath) {
-        const authKey = localStorage.getItem('sb_api_key')
+        const authKey = WorkerConfig.getApiKey()
         const src = `${api.getAiFileUrl(log.id)}?auth=${encodeURIComponent(authKey || '')}`
         previewHtml = `<div class="ai-log-preview"><audio controls src="${src}"></audio></div>`
       }

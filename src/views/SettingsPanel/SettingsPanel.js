@@ -3,6 +3,7 @@ import { icons } from '@/utils/icons.js'
 import { store } from '@/Store.js'
 import { api } from '@/services/api.js'
 import { pollingService } from '@/services/PollingService.js'
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 import './SettingsPanel.css'
 
 // Access data is now loaded dynamically from Puter KV via API
@@ -31,7 +32,7 @@ const API_ENDPOINTS = [
 export class SettingsPanel extends HTMLElement {
   /** @override */
   connectedCallback() {
-    this._apiKey = localStorage.getItem('sb_api_key') || null
+    this._apiKey = WorkerConfig.getApiKey()
     this._expandedAccess = new Set()
     this._editingProfile = false
     this._accessData = []
@@ -53,7 +54,7 @@ export class SettingsPanel extends HTMLElement {
 
   /** Re-initializes the entire panel (called after setup modal completes). */
   refresh() {
-    this._apiKey = localStorage.getItem('sb_api_key') || null
+    this._apiKey = WorkerConfig.getApiKey()
     this.render()
     this._bindEvents()
     this._checkWorkerStatus()
@@ -72,7 +73,7 @@ export class SettingsPanel extends HTMLElement {
    * @private
    */
   _getWorkerUrl() {
-    return (localStorage.getItem('worker_url') || '').replace(/\/+$/, '')
+    return (WorkerConfig.getWorkerUrl() || '').replace(/\/+$/, '')
   }
 
   /**
@@ -385,7 +386,9 @@ export class SettingsPanel extends HTMLElement {
     }
 
     pollingService.stop()
-    localStorage.clear()
+    await WorkerConfig.clearAll()
+    localStorage.removeItem('theme')
+    localStorage.removeItem('assistant_profile')
 
     const modal = document.createElement('setup-modal')
     modal.setAttribute('mode', 'install')
@@ -584,9 +587,7 @@ export class SettingsPanel extends HTMLElement {
 
   /** Returns true if both worker URL and API key are missing/empty. @private */
   _isUnconfigured() {
-    const url = localStorage.getItem('worker_url')
-    const key = localStorage.getItem('sb_api_key')
-    return !url && !key
+    return !WorkerConfig.getWorkerUrl() && !WorkerConfig.getApiKey()
   }
 
   /** Renders or hides the auto-install button based on configuration state. @private */
@@ -696,8 +697,7 @@ export class SettingsPanel extends HTMLElement {
   _saveWorkerUrl() {
     const input = this.querySelector('#worker-url')
     const url = input.value.trim().replace(/\/+$/, '')
-    localStorage.setItem('worker_url', url)
-    if (typeof puter !== 'undefined' && puter.kv) puter.kv.set('sb_worker_url', url)
+    WorkerConfig.set('workerUrl', url)
     this._checkWorkerStatus()
     const btn = this.querySelector('.save-worker-url-btn')
     const originalText = btn.textContent
@@ -733,7 +733,7 @@ export class SettingsPanel extends HTMLElement {
     }
 
     // Store locally for the frontend
-    localStorage.setItem('sb_api_key', key)
+    WorkerConfig.set('apiKey', key)
     this._apiKey = key
     const input = this.querySelector('#api-key')
     if (input) input.value = key
@@ -754,8 +754,7 @@ export class SettingsPanel extends HTMLElement {
     const input = this.querySelector('#api-key')
     const key = input.value.trim()
     this._apiKey = key
-    localStorage.setItem('sb_api_key', key)
-    if (typeof puter !== 'undefined' && puter.kv) puter.kv.set('sb_api_key', key)
+    WorkerConfig.set('apiKey', key)
     this._checkWorkerStatus()
 
     const btn = this.querySelector('.save-api-key-btn')

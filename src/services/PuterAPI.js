@@ -1,17 +1,18 @@
 /**
  * @module PuterAPI
  * Fetch-based client for the Clawboard worker API. Worker URL and API key
- * are read from localStorage (set via SettingsPanel).
+ * are read from WorkerConfig (in-memory, backed by Puter KV).
  */
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 
 /**
- * Returns the configured worker base URL from localStorage.
+ * Returns the configured worker base URL from WorkerConfig.
  * @private
  * @returns {string} Base URL with trailing slashes stripped
  * @throws {Error} If no worker URL is configured
  */
 function getBaseUrl() {
-  const url = localStorage.getItem('worker_url')
+  const url = WorkerConfig.getWorkerUrl()
   if (!url) throw new Error('Worker URL not configured. Go to API Test panel and set the worker URL.')
   return url.replace(/\/+$/, '')
 }
@@ -22,7 +23,7 @@ function getBaseUrl() {
  * @returns {Object} Headers object, includes Authorization if key is set
  */
 function getAuthHeaders() {
-  const key = localStorage.getItem('sb_api_key')
+  const key = WorkerConfig.getApiKey()
   const headers = {}
   if (key) headers['Authorization'] = `Bearer ${key}`
   return headers

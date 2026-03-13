@@ -6,6 +6,7 @@
 import { initViewManager } from '@/ViewManager/ViewManager.js'
 import { store } from '@/Store.js'
 import { pollingService } from '@/services/PollingService.js'
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 import '@/styles/styles.css'
 import '@/ViewManager/ViewManager.css'
 
@@ -119,11 +120,18 @@ async function init() {
     }
   }
 
-  // 3. Hydrate localStorage from puter.kv
+  // 3. Load worker config from puter.kv into memory
   const workerDeploy = await import('@/services/WorkerDeployService.js')
-  await workerDeploy.hydrateFromKV()
+  await WorkerConfig.loadFromKV()
 
-  // 4. Re-apply theme (may have been restored from KV)
+  // 4. Restore theme from KV if available
+  if (typeof puter !== 'undefined' && puter.kv) {
+    try {
+      const kvTheme = await puter.kv.get('sb_theme')
+      const themeVal = kvTheme?.value ?? kvTheme
+      if (themeVal) localStorage.setItem('theme', themeVal)
+    } catch { /* ignore */ }
+  }
   const theme = localStorage.getItem('theme') || 'system'
   store.state.theme = theme
   if (theme && theme !== 'system') {
