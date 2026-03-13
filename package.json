@@ -1,6 +1,6 @@
 {
   "name": "clawboard",
-  "version": "26.2.21",
+  "version": "26.3.13",
   "description": "Task dashboard for AI agents — REST API + vanilla Web Components UI, powered by Puter",
   "type": "module",
   "license": "AGPL-3.0-or-later",

@@ -46,6 +46,7 @@ export class SettingsPanel extends HTMLElement {
     // Initialize dynamic content
     setTimeout(() => {
       this._renderAssistantProfile()
+      this._renderWorkerUpdate()
       this._renderAutoInstallSection()
       this._renderAgentMessage()
       this._loadAccessData()
@@ -61,6 +62,7 @@ export class SettingsPanel extends HTMLElement {
     this._loadApiKey()
     setTimeout(() => {
       this._renderAssistantProfile()
+      this._renderWorkerUpdate()
       this._renderAutoInstallSection()
       this._renderAgentMessage()
       this._loadAccessData()
@@ -179,6 +181,8 @@ export class SettingsPanel extends HTMLElement {
         this._copyWorkerUrl()
       } else if (e.target.closest('[data-action="copy-key"]')) {
         this._copyApiKey()
+      } else if (e.target.closest('.update-worker-btn')) {
+        this._updateWorker()
       } else if (e.target.closest('.auto-install-btn')) {
         this._autoInstallWorker()
       } else if (e.target.closest('.copy-agent-msg-btn')) {
@@ -608,6 +612,53 @@ export class SettingsPanel extends HTMLElement {
     }
   }
 
+  /** Checks for worker updates and renders update/reinstall button. @private */
+  async _renderWorkerUpdate() {
+    const section = this.querySelector('.worker-update-section')
+    if (!section) return
+
+    const deploy = await import('@/services/WorkerDeployService.js')
+    if (!deploy.isAutoDeployed()) {
+      section.innerHTML = ''
+      return
+    }
+
+    const hasUpdate = deploy.needsUpdate()
+    section.innerHTML = html`
+      <div class="auto-install-box">
+        ${hasUpdate ? html`<p class="auto-install-hint">A new worker version is available.</p>` : ''}
+        <button class="btn ${hasUpdate ? 'btn-primary' : ''} update-worker-btn">${hasUpdate ? 'Update Worker' : 'Re-install Worker'}</button>
+        <div class="worker-update-error" style="display: none;"></div>
+      </div>
+    `
+  }
+
+  /** Updates the deployed worker and shows feedback. @private */
+  async _updateWorker() {
+    const btn = this.querySelector('.update-worker-btn')
+    if (!btn) return
+
+    btn.disabled = true
+    btn.textContent = 'Updating...'
+
+    try {
+      const deploy = await import('@/services/WorkerDeployService.js')
+      await deploy.update()
+
+      btn.textContent = 'Updated!'
+      setTimeout(() => this._renderWorkerUpdate(), 1500)
+    } catch (err) {
+      btn.disabled = false
+      btn.textContent = 'Update Worker'
+
+      const errorEl = this.querySelector('.worker-update-error')
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Update failed. Please try again.'
+        errorEl.style.display = 'block'
+      }
+    }
+  }
+
   /** Runs the auto-deploy workflow and populates the configuration fields. @private */
   async _autoInstallWorker() {
     const btn = this.querySelector('.auto-install-btn')
@@ -687,6 +738,7 @@ export class SettingsPanel extends HTMLElement {
   /** Called by ViewManager when this view becomes visible. Refreshes dynamic sections. */
   onActivate() {
     this._checkWorkerStatus()
+    this._renderWorkerUpdate()
     this._loadAccessData()
     this._renderAssistantProfile()
     this._renderAutoInstallSection()
@@ -969,6 +1021,8 @@ export class SettingsPanel extends HTMLElement {
         <p>Connect to your Puter worker that provides the dashboard API</p>
 
         <div class="worker-status"></div>
+
+        <div class="worker-update-section"></div>
 
         <div class="auto-install-section"></div>
 

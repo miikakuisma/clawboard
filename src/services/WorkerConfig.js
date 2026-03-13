@@ -55,8 +55,8 @@ export async function loadFromKV() {
     config.apiKey = apiKey
     config.codeHash = codeHash
 
-    // If URL isn't in KV, discover it from Puter workers API
-    if (!config.workerUrl && config.apiKey) {
+    // Discover worker if URL or name is missing (covers partial KV state)
+    if ((!config.workerUrl || !config.workerName) && config.apiKey) {
       const workers = await puter.workers.list()
       const match = workers.find(w => w.name.startsWith(WORKER_PREFIX))
       if (match) {

@@ -156,12 +156,6 @@ async function init() {
     // 7. Pre-load tasks + heartbeat before revealing UI
     await pollingService.fetchAll()
 
-    // Check for worker update (non-blocking)
-    if (workerDeploy.isAutoDeployed() && workerDeploy.needsUpdate()) {
-      const modal = document.createElement('setup-modal')
-      modal.setAttribute('mode', 'update')
-      document.body.appendChild(modal)
-    }
   }
 
   // 8. Refresh settings panel with restored/fetched data
