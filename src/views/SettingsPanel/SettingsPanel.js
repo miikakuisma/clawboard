@@ -3,9 +3,17 @@ import { icons } from '@/utils/icons.js'
 import { store } from '@/Store.js'
 import { api } from '@/services/api.js'
 import { pollingService } from '@/services/PollingService.js'
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 import './SettingsPanel.css'
 
 // Access data is now loaded dynamically from Puter KV via API
+
+const AI_ENDPOINTS = [
+  { type: 'img2txt', label: 'Image → Text', inputType: 'file', accept: 'image/*' },
+  { type: 'txt2img', label: 'Text → Image', inputType: 'text', placeholder: 'Describe the image to generate...' },
+  { type: 'txt2speech', label: 'Text → Speech', inputType: 'text', placeholder: 'Enter text to convert to speech...' },
+  { type: 'speech2txt', label: 'Speech → Text', inputType: 'file', accept: 'audio/*' },
+]
 
 const API_ENDPOINTS = [
   { method: 'GET', path: '/api/tasks', label: 'List Tasks' },
@@ -24,7 +32,7 @@ const API_ENDPOINTS = [
 export class SettingsPanel extends HTMLElement {
   /** @override */
   connectedCallback() {
-    this._apiKey = localStorage.getItem('sb_api_key') || null
+    this._apiKey = WorkerConfig.getApiKey()
     this._expandedAccess = new Set()
     this._editingProfile = false
     this._accessData = []
@@ -38,6 +46,7 @@ export class SettingsPanel extends HTMLElement {
     // Initialize dynamic content
     setTimeout(() => {
       this._renderAssistantProfile()
+      this._renderWorkerUpdate()
       this._renderAutoInstallSection()
       this._renderAgentMessage()
       this._loadAccessData()
@@ -46,13 +55,14 @@ export class SettingsPanel extends HTMLElement {
 
   /** Re-initializes the entire panel (called after setup modal completes). */
   refresh() {
-    this._apiKey = localStorage.getItem('sb_api_key') || null
+    this._apiKey = WorkerConfig.getApiKey()
     this.render()
     this._bindEvents()
     this._checkWorkerStatus()
     this._loadApiKey()
     setTimeout(() => {
       this._renderAssistantProfile()
+      this._renderWorkerUpdate()
       this._renderAutoInstallSection()
       this._renderAgentMessage()
       this._loadAccessData()
@@ -65,7 +75,7 @@ export class SettingsPanel extends HTMLElement {
    * @private
    */
   _getWorkerUrl() {
-    return (localStorage.getItem('worker_url') || '').replace(/\/+$/, '')
+    return (WorkerConfig.getWorkerUrl() || '').replace(/\/+$/, '')
   }
 
   /**
@@ -171,10 +181,15 @@ export class SettingsPanel extends HTMLElement {
         this._copyWorkerUrl()
       } else if (e.target.closest('[data-action="copy-key"]')) {
         this._copyApiKey()
+      } else if (e.target.closest('.update-worker-btn')) {
+        this._updateWorker()
       } else if (e.target.closest('.auto-install-btn')) {
         this._autoInstallWorker()
       } else if (e.target.closest('.copy-agent-msg-btn')) {
         this._copyAgentMessage()
+      } else if (e.target.closest('.test-ai-btn')) {
+        const btn = e.target.closest('.test-ai-btn')
+        await this._testAiEndpoint(btn.dataset.aiType, btn)
       } else if (e.target.closest('.reset-clawboard-btn')) {
         this._resetClawboard()
       }
@@ -375,7 +390,9 @@ export class SettingsPanel extends HTMLElement {
     }
 
     pollingService.stop()
-    localStorage.clear()
+    await WorkerConfig.clearAll()
+    localStorage.removeItem('theme')
+    localStorage.removeItem('assistant_profile')
 
     const modal = document.createElement('setup-modal')
     modal.setAttribute('mode', 'install')
@@ -574,9 +591,7 @@ export class SettingsPanel extends HTMLElement {
 
   /** Returns true if both worker URL and API key are missing/empty. @private */
   _isUnconfigured() {
-    const url = localStorage.getItem('worker_url')
-    const key = localStorage.getItem('sb_api_key')
-    return !url && !key
+    return !WorkerConfig.getWorkerUrl() && !WorkerConfig.getApiKey()
   }
 
   /** Renders or hides the auto-install button based on configuration state. @private */
@@ -594,6 +609,53 @@ export class SettingsPanel extends HTMLElement {
       `
     } else {
       section.innerHTML = ''
+    }
+  }
+
+  /** Checks for worker updates and renders update/reinstall button. @private */
+  async _renderWorkerUpdate() {
+    const section = this.querySelector('.worker-update-section')
+    if (!section) return
+
+    const deploy = await import('@/services/WorkerDeployService.js')
+    if (!deploy.isAutoDeployed()) {
+      section.innerHTML = ''
+      return
+    }
+
+    const hasUpdate = deploy.needsUpdate()
+    section.innerHTML = html`
+      <div class="auto-install-box">
+        ${hasUpdate ? html`<p class="auto-install-hint">A new worker version is available.</p>` : ''}
+        <button class="btn ${hasUpdate ? 'btn-primary' : ''} update-worker-btn">${hasUpdate ? 'Update Worker' : 'Re-install Worker'}</button>
+        <div class="worker-update-error" style="display: none;"></div>
+      </div>
+    `
+  }
+
+  /** Updates the deployed worker and shows feedback. @private */
+  async _updateWorker() {
+    const btn = this.querySelector('.update-worker-btn')
+    if (!btn) return
+
+    btn.disabled = true
+    btn.textContent = 'Updating...'
+
+    try {
+      const deploy = await import('@/services/WorkerDeployService.js')
+      await deploy.update()
+
+      btn.textContent = 'Updated!'
+      setTimeout(() => this._renderWorkerUpdate(), 1500)
+    } catch (err) {
+      btn.disabled = false
+      btn.textContent = 'Update Worker'
+
+      const errorEl = this.querySelector('.worker-update-error')
+      if (errorEl) {
+        errorEl.textContent = err.message || 'Update failed. Please try again.'
+        errorEl.style.display = 'block'
+      }
     }
   }
 
@@ -676,6 +738,7 @@ export class SettingsPanel extends HTMLElement {
   /** Called by ViewManager when this view becomes visible. Refreshes dynamic sections. */
   onActivate() {
     this._checkWorkerStatus()
+    this._renderWorkerUpdate()
     this._loadAccessData()
     this._renderAssistantProfile()
     this._renderAutoInstallSection()
@@ -686,8 +749,7 @@ export class SettingsPanel extends HTMLElement {
   _saveWorkerUrl() {
     const input = this.querySelector('#worker-url')
     const url = input.value.trim().replace(/\/+$/, '')
-    localStorage.setItem('worker_url', url)
-    if (typeof puter !== 'undefined' && puter.kv) puter.kv.set('sb_worker_url', url)
+    WorkerConfig.set('workerUrl', url)
     this._checkWorkerStatus()
     const btn = this.querySelector('.save-worker-url-btn')
     const originalText = btn.textContent
@@ -723,7 +785,7 @@ export class SettingsPanel extends HTMLElement {
     }
 
     // Store locally for the frontend
-    localStorage.setItem('sb_api_key', key)
+    WorkerConfig.set('apiKey', key)
     this._apiKey = key
     const input = this.querySelector('#api-key')
     if (input) input.value = key
@@ -744,8 +806,7 @@ export class SettingsPanel extends HTMLElement {
     const input = this.querySelector('#api-key')
     const key = input.value.trim()
     this._apiKey = key
-    localStorage.setItem('sb_api_key', key)
-    if (typeof puter !== 'undefined' && puter.kv) puter.kv.set('sb_api_key', key)
+    WorkerConfig.set('apiKey', key)
     this._checkWorkerStatus()
 
     const btn = this.querySelector('.save-api-key-btn')
@@ -812,6 +873,114 @@ export class SettingsPanel extends HTMLElement {
     }
   }
 
+  _readAsDataUrl(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(reader.result) // full data URL
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  async _testAiEndpoint(type, button) {
+    const workerUrl = this._getWorkerUrl()
+    if (!workerUrl) {
+      alert('Please configure the worker URL first')
+      return
+    }
+
+    const card = this.querySelector(`#ai-test-${type}`)
+    const resultArea = card.querySelector('.ai-test-result')
+    const input = card.querySelector(`[data-ai-input="${type}"]`)
+
+    const originalText = button.textContent
+    button.disabled = true
+    button.textContent = 'Testing...'
+    resultArea.innerHTML = ''
+
+    try {
+      let body = {}
+      let endpoint = ''
+
+      if (type === 'img2txt') {
+        const file = input.files?.[0]
+        if (!file) { alert('Please select an image file'); return }
+        // Send full data URI — worker passes it directly to puter.ai.img2txt
+        const dataUri = await new Promise((resolve, reject) => {
+          const r = new FileReader()
+          r.onload = () => resolve(r.result)
+          r.onerror = reject
+          r.readAsDataURL(file)
+        })
+        body = { imageBase64: dataUri }
+        endpoint = '/api/ai/img2txt'
+      } else if (type === 'txt2img') {
+        const prompt = input.value.trim()
+        if (!prompt) { alert('Please enter a prompt'); return }
+        body = { prompt }
+        endpoint = '/api/ai/txt2img'
+      } else if (type === 'txt2speech') {
+        const text = input.value.trim()
+        if (!text) { alert('Please enter text'); return }
+        body = { text }
+        endpoint = '/api/ai/txt2speech'
+      } else if (type === 'speech2txt') {
+        const file = input.files?.[0]
+        if (!file) { alert('Please select an audio file'); return }
+        body = { audio: await this._readAsDataUrl(file) }
+        endpoint = '/api/ai/speech2txt'
+      }
+
+      const start = performance.now()
+      const response = await fetch(`${workerUrl}${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this._apiKey ? { 'Authorization': `Bearer ${this._apiKey}` } : {})
+        },
+        body: JSON.stringify(body)
+      })
+      const elapsed = Math.round(performance.now() - start)
+      const result = await response.json()
+
+      const statusClass = response.ok ? 'success' : 'error'
+      let contentHtml = ''
+
+      if (response.ok) {
+        if (type === 'img2txt' || type === 'speech2txt') {
+          const text = result.text || result.transcription || JSON.stringify(result, null, 2)
+          contentHtml = `<pre>${text}</pre>`
+        } else if (type === 'txt2img' && result.base64) {
+          contentHtml = `<img src="data:image/png;base64,${result.base64}" alt="Generated image" />`
+        } else if (type === 'txt2speech' && result.base64) {
+          contentHtml = `<audio controls src="data:audio/mpeg;base64,${result.base64}"></audio>`
+        } else {
+          contentHtml = `<pre>${JSON.stringify(result, null, 2)}</pre>`
+        }
+      } else {
+        contentHtml = `<pre>${result.error || JSON.stringify(result, null, 2)}</pre>`
+      }
+
+      resultArea.innerHTML = `
+        <div class="result-header">
+          <span class="result-status ${statusClass}">${response.status} ${response.statusText}</span>
+          <span class="result-endpoint">${elapsed}ms</span>
+        </div>
+        ${contentHtml}
+      `
+    } catch (error) {
+      resultArea.innerHTML = `
+        <div class="result-header">
+          <span class="result-status error">Error</span>
+        </div>
+        <pre>${error.message}</pre>
+      `
+    } finally {
+      button.disabled = false
+      button.textContent = originalText
+    }
+  }
+
   /** Renders the full settings page: access, profile, config, API testing, and danger zone. */
   render() {
     const workerUrl = this._getWorkerUrl()
@@ -852,6 +1021,8 @@ export class SettingsPanel extends HTMLElement {
         <p>Connect to your Puter worker that provides the dashboard API</p>
 
         <div class="worker-status"></div>
+
+        <div class="worker-update-section"></div>
 
         <div class="auto-install-section"></div>
 
@@ -898,6 +1069,29 @@ export class SettingsPanel extends HTMLElement {
           <div class="test-result">
             <div class="empty-result">Select an endpoint above to test</div>
           </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3>AI API Testing</h3>
+        <p>Test AI proxy endpoints with file uploads and text inputs</p>
+        <div class="ai-test-grid">
+          ${AI_ENDPOINTS.map(ep => html`
+            <div class="ai-test-card" id="ai-test-${ep.type}">
+              <div class="ai-test-card-header">
+                <span class="endpoint-method post">POST</span>
+                <span>${ep.label}</span>
+              </div>
+              <div class="ai-test-input">
+                ${ep.inputType === 'file'
+                  ? raw(`<input type="file" accept="${ep.accept}" data-ai-input="${ep.type}" />`)
+                  : raw(`<textarea data-ai-input="${ep.type}" placeholder="${ep.placeholder}" rows="2"></textarea>`)
+                }
+              </div>
+              <button class="test-ai-btn" data-ai-type="${ep.type}">Test</button>
+              <div class="ai-test-result" id="ai-result-${ep.type}"></div>
+            </div>
+          `)}
         </div>
       </div>
 

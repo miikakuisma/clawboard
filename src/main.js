@@ -6,6 +6,7 @@
 import { initViewManager } from '@/ViewManager/ViewManager.js'
 import { store } from '@/Store.js'
 import { pollingService } from '@/services/PollingService.js'
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 import '@/styles/styles.css'
 import '@/ViewManager/ViewManager.css'
 
@@ -17,6 +18,7 @@ import { Sidebar } from '@/layout/Sidebar.js'
 import { TasksView } from '@/views/TasksView/TasksView.js'
 import { HeartbeatView } from '@/views/HeartbeatView/HeartbeatView.js'
 import { SettingsPanel } from '@/views/SettingsPanel/SettingsPanel.js'
+import { AiToolsView } from '@/views/AiToolsView/AiToolsView.js'
 
 // Shared components
 import { StatusBadge } from '@/components/StatusBadge/StatusBadge.js'
@@ -69,6 +71,7 @@ customElements.define('app-sidebar', Sidebar)
 customElements.define('tasks-view', TasksView)
 customElements.define('heartbeat-view', HeartbeatView)
 customElements.define('settings-panel', SettingsPanel)
+customElements.define('ai-tools-view', AiToolsView)
 
 // Register shared components
 customElements.define('status-badge', StatusBadge)
@@ -87,9 +90,26 @@ async function init() {
 
   // 1. Loading overlay is already visible from HTML
 
-  // 2. Ensure Puter auth when running outside Puter's app iframe
+  // 2. Ensure Puter auth is ready before accessing KV/workers
   if (window.puter) {
-    if (window.puter.env !== 'app') {
+    if (window.puter.env === 'app') {
+      // Inside Puter iframe — SDK may not be ready yet, wait for auth
+      try {
+        await window.puter.auth.getUser()
+        console.log('[App] Puter auth ready')
+      } catch {
+        // Auth not ready — wait and retry
+        console.log('[App] Waiting for Puter auth...')
+        await new Promise(r => setTimeout(r, 1000))
+        try {
+          await window.puter.auth.getUser()
+          console.log('[App] Puter auth ready (after wait)')
+        } catch (e) {
+          console.warn('[App] Puter auth not available:', e?.message || e)
+        }
+      }
+    } else {
+      // Outside Puter iframe — show sign-in if needed
       if (!window.puter.auth.isSignedIn()) {
         const user = await showSignInOverlay()
         console.log('[App] User signed in:', user.username)
@@ -100,11 +120,18 @@ async function init() {
     }
   }
 
-  // 3. Hydrate localStorage from puter.kv
+  // 3. Load worker config from puter.kv into memory
   const workerDeploy = await import('@/services/WorkerDeployService.js')
-  await workerDeploy.hydrateFromKV()
+  await WorkerConfig.loadFromKV()
 
-  // 4. Re-apply theme (may have been restored from KV)
+  // 4. Restore theme from KV if available
+  if (typeof puter !== 'undefined' && puter.kv) {
+    try {
+      const kvTheme = await puter.kv.get('sb_theme')
+      const themeVal = kvTheme?.value ?? kvTheme
+      if (themeVal) localStorage.setItem('theme', themeVal)
+    } catch { /* ignore */ }
+  }
   const theme = localStorage.getItem('theme') || 'system'
   store.state.theme = theme
   if (theme && theme !== 'system') {
@@ -129,12 +156,6 @@ async function init() {
     // 7. Pre-load tasks + heartbeat before revealing UI
     await pollingService.fetchAll()
 
-    // Check for worker update (non-blocking)
-    if (workerDeploy.isAutoDeployed() && workerDeploy.needsUpdate()) {
-      const modal = document.createElement('setup-modal')
-      modal.setAttribute('mode', 'update')
-      document.body.appendChild(modal)
-    }
   }
 
   // 8. Refresh settings panel with restored/fetched data

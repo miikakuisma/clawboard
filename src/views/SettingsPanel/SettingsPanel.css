@@ -846,6 +846,21 @@ test-panel {
   height: 16px;
 }
 
+/* AI Test Section */
+.ai-test-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: 16px; }
+.ai-test-card { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+.ai-test-card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-weight: 600; font-size: 14px; }
+.ai-test-input { margin-bottom: 12px; }
+.ai-test-input input[type="file"] { width: 100%; padding: 8px; border: 1px dashed var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; }
+.ai-test-input textarea { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; font-family: inherit; resize: vertical; min-height: 60px; box-sizing: border-box; }
+.test-ai-btn { padding: 8px 16px; background: var(--color-accent); color: white; border: none; border-radius: 6px; font-size: 13px; cursor: pointer; }
+.test-ai-btn:hover:not(:disabled) { opacity: 0.9; }
+.test-ai-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.ai-test-result { margin-top: 12px; }
+.ai-test-result img { max-width: 100%; max-height: 300px; border-radius: 6px; border: 1px solid var(--border); }
+.ai-test-result audio { width: 100%; margin-top: 8px; }
+.ai-test-result pre { margin: 0; padding: 8px; font-size: 12px; white-space: pre-wrap; word-wrap: break-word; background: var(--surface); border-radius: 4px; max-height: 200px; overflow-y: auto; }
+
 /* Danger Zone */
 .danger-zone {
   border-color: var(--color-error);

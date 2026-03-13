@@ -6,6 +6,7 @@ import './Sidebar.css'
 const NAV_ITEMS = [
   { id: 'heartbeat', label: 'Heartbeat', icon: 'heartbeat' },
   { id: 'tasks', label: 'Tasks', icon: 'tasks' },
+  { id: 'aiTools', label: 'AI Tools', icon: 'ai' },
   { id: 'SettingsPanel', label: 'Settings', icon: 'settings' },
 ]
 

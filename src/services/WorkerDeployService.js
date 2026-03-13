@@ -1,26 +1,7 @@
 import workerCode from '../../workers/puter-worker.js?raw'
+import * as WorkerConfig from '@/services/WorkerConfig.js'
 
-const WORKER_PREFIX = 'clawboard-api'
 const WORKER_FILE = 'clawboard-api.js'
-
-/**
- * Retrieves the stored worker name from localStorage.
- * @private
- * @returns {string|null}
- */
-function getWorkerName() {
-  return localStorage.getItem('clawboard_worker_name') || null
-}
-
-/**
- * Generates a unique worker name with a random suffix.
- * @private
- * @returns {string}
- */
-function generateWorkerName() {
-  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
-  return `${WORKER_PREFIX}-${suffix}`
-}
 
 /**
  * Computes a numeric hash of a string (DJB2 algorithm).
@@ -37,11 +18,21 @@ function hashCode(str) {
 }
 
 /**
- * Checks whether a worker URL has been configured in localStorage.
+ * Generates a unique worker name with a random suffix.
+ * @private
+ * @returns {string}
+ */
+function generateWorkerName() {
+  const suffix = crypto.randomUUID().replace(/-/g, '').slice(0, 8)
+  return `clawboard-api-${suffix}`
+}
+
+/**
+ * Checks whether a worker URL has been configured.
  * @returns {boolean}
  */
 export function isWorkerConfigured() {
-  return !!localStorage.getItem('worker_url')
+  return WorkerConfig.isWorkerConfigured()
 }
 
 /**
@@ -49,7 +40,7 @@ export function isWorkerConfigured() {
  * @returns {boolean}
  */
 export function isAutoDeployed() {
-  return !!localStorage.getItem('clawboard_worker_name')
+  return WorkerConfig.isAutoDeployed()
 }
 
 /**
@@ -58,14 +49,14 @@ export function isAutoDeployed() {
  * @returns {boolean} True if the worker needs redeployment
  */
 export function needsUpdate() {
-  const storedHash = localStorage.getItem('worker_code_hash')
+  const storedHash = WorkerConfig.getCodeHash()
   if (!storedHash) return isAutoDeployed()
   return storedHash !== hashCode(workerCode)
 }
 
 /**
  * Deploys a new worker to Puter: writes the file, creates the worker,
- * generates an API key, and persists all config to localStorage.
+ * generates an API key, and persists all config to KV via WorkerConfig.
  * @returns {Promise<{url: string, apiKey: string}>} Deployed worker URL and generated API key
  */
 export async function deploy() {
@@ -81,75 +72,15 @@ export async function deploy() {
   // Generate API key
   const apiKey = 'sb_' + crypto.randomUUID().replace(/-/g, '').slice(0, 24)
 
-  // Persist config in Puter KV so credentials survive localStorage clears
-  await puter.kv.set('sb_api_key', apiKey)
-  await puter.kv.set('sb_worker_url', url)
-  await puter.kv.set('sb_worker_name', workerName)
-  await puter.kv.set('sb_worker_code_hash', hashCode(workerCode))
-
-  // Save everything to localStorage
-  localStorage.setItem('worker_url', url)
-  localStorage.setItem('sb_api_key', apiKey)
-  localStorage.setItem('clawboard_worker_name', workerName)
-  localStorage.setItem('clawboard_version', __APP_VERSION__)
-  localStorage.setItem('worker_code_hash', hashCode(workerCode))
+  // Persist config to KV and in-memory cache
+  await WorkerConfig.setAll({
+    workerUrl: url,
+    apiKey,
+    workerName,
+    codeHash: hashCode(workerCode),
+  })
 
   return { url, apiKey }
-}
-
-/**
- * Unconditionally loads worker config and theme from puter.kv into
- * localStorage on every startup. Falls back to worker discovery via
- * puter.workers.list() if URL isn't in KV yet. Also backfills KV
- * from localStorage for existing deploys that predate KV storage.
- * @returns {Promise<void>}
- */
-export async function hydrateFromKV() {
-  if (typeof puter === 'undefined' || !puter.kv) return
-
-  try {
-    // Read everything from KV in one batch
-    let [url, name, apiKey, theme, codeHash] = await Promise.all([
-      puter.kv.get('sb_worker_url'),
-      puter.kv.get('sb_worker_name'),
-      puter.kv.get('sb_api_key'),
-      puter.kv.get('sb_theme'),
-      puter.kv.get('sb_worker_code_hash'),
-    ])
-
-    // Backfill: if localStorage has values that KV doesn't, push them up
-    const localUrl = localStorage.getItem('worker_url')
-    const localKey = localStorage.getItem('sb_api_key')
-    const localName = localStorage.getItem('clawboard_worker_name')
-    const backfills = []
-    if (localUrl && !url) { url = localUrl; backfills.push(puter.kv.set('sb_worker_url', localUrl)) }
-    if (localKey && !apiKey) { apiKey = localKey; backfills.push(puter.kv.set('sb_api_key', localKey)) }
-    if (localName && !name) { name = localName; backfills.push(puter.kv.set('sb_worker_name', localName)) }
-    if (backfills.length) await Promise.all(backfills)
-
-    // If URL isn't in KV (pre-existing deploy), discover it from Puter workers API
-    if (!url && apiKey) {
-      const workers = await puter.workers.list()
-      const match = workers.find(w => w.name.startsWith(WORKER_PREFIX))
-      if (match) {
-        url = match.url
-        name = match.name
-        await Promise.all([
-          puter.kv.set('sb_worker_url', url),
-          puter.kv.set('sb_worker_name', name),
-        ])
-      }
-    }
-
-    // Write KV values into localStorage
-    if (url) localStorage.setItem('worker_url', url)
-    if (apiKey) localStorage.setItem('sb_api_key', apiKey)
-    if (name) localStorage.setItem('clawboard_worker_name', name)
-    if (theme) localStorage.setItem('theme', theme)
-    if (codeHash) localStorage.setItem('worker_code_hash', codeHash)
-  } catch (e) {
-    console.warn('[WorkerDeploy] KV hydration failed:', e?.message || e)
-  }
 }
 
 /**
@@ -161,18 +92,20 @@ export async function hydrateFromKV() {
  * @throws {Error} If no worker name is found or file write fails
  */
 export async function update() {
-  if (!getWorkerName()) throw new Error('No worker name found — cannot update')
+  if (!WorkerConfig.getWorkerName()) throw new Error('No worker name found — cannot update')
 
   const newHash = hashCode(workerCode)
-  const oldHash = localStorage.getItem('worker_code_hash')
-  localStorage.setItem('worker_code_hash', newHash)
+  const oldHash = WorkerConfig.getCodeHash()
+
+  // Optimistically set the new hash
+  await WorkerConfig.set('codeHash', newHash)
 
   try {
     await puter.fs.write(WORKER_FILE, workerCode)
-    await puter.kv.set('sb_worker_code_hash', newHash)
-    return { url: localStorage.getItem('worker_url') }
+    return { url: WorkerConfig.getWorkerUrl() }
   } catch (err) {
-    localStorage.setItem('worker_code_hash', oldHash)
+    // Restore old hash on failure
+    await WorkerConfig.set('codeHash', oldHash)
     throw err
   }
 }

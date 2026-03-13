@@ -5,6 +5,7 @@ import { api } from '@/services/api.js'
 const POLL_CONFIG = {
   heartbeat: { interval: 30000,  apiFn: 'getHeartbeat', storeKey: 'heartbeat', dataKey: 'data',  alwaysOn: true },
   tasks:     { interval: 30000, apiFn: 'getTasks',     storeKey: 'tasks',     dataKey: 'items', alwaysOn: true },
+  aiTools:   { interval: 60000, apiFn: 'getAiLogs',    storeKey: 'aiTools',   dataKey: 'logs',  alwaysOn: false },
 }
 
 /**

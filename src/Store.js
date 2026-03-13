@@ -25,6 +25,7 @@ class Store {
       // Section data
       tasks: { items: [], loading: false },
       heartbeat: { data: null, loading: false },
+      aiTools: { logs: [], loading: false },
     }
   }
 

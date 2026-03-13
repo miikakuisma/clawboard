@@ -57,10 +57,21 @@ async function checkAuth(request, user) {
   if (user) return true
   // External HTTP - check Bearer token
   const auth = request.headers.get('Authorization') || ''
-  if (!auth.startsWith('Bearer ')) return false
-  const token = auth.slice(7)
-  const storedKey = await me.puter.kv.get('sb_api_key')
-  return token === storedKey
+  if (auth.startsWith('Bearer ')) {
+    const token = auth.slice(7)
+    const storedKey = await me.puter.kv.get('sb_api_key')
+    if (token === storedKey) return true
+  }
+  // Fallback: ?auth= query param for browser media elements (<img>, <audio>)
+  try {
+    const url = new URL(request.url)
+    const queryAuth = url.searchParams.get('auth')
+    if (queryAuth) {
+      const storedKey = await me.puter.kv.get('sb_api_key')
+      if (queryAuth === storedKey) return true
+    }
+  } catch { /* ignore */ }
+  return false
 }
 
 // ─── Cooldown intervals for recurring tasks ───
@@ -84,6 +95,7 @@ const MANIFEST = {
     DASHBOARD SECTIONS:
     - Tasks: Track pending, current, and completed work. Supports recurring tasks.
     - Heartbeat: Monitor agent status and configure periodic checks.
+    - AI Tools: Proxy to Puter AI services — image analysis, image generation, text-to-speech, and speech-to-text. Usage is logged and browsable from the dashboard.
     - Settings: Configure worker URL, API key, and access management.
 
     TASK LIFECYCLE:
@@ -118,6 +130,13 @@ const MANIFEST = {
     { method: 'PUT', path: '/api/access/:id', description: 'Update access entry', body: { name: 'string', type: 'string', description: 'string', status: 'string', details: 'object|string', icon: 'string' } },
     { method: 'DELETE', path: '/api/access/:id', description: 'Delete access entry' },
     { method: 'POST', path: '/api/reset', description: 'Clear all data from KV' },
+    { method: 'POST', path: '/api/ai/img2txt', description: 'Analyze image with AI (OCR/description)', body: { imageBase64: 'string (base64-encoded image)' } },
+    { method: 'POST', path: '/api/ai/txt2img', description: 'Generate image from text prompt', body: { prompt: 'string', provider: 'string (optional)', model: 'string (optional)' } },
+    { method: 'POST', path: '/api/ai/txt2speech', description: 'Convert text to speech audio', body: { text: 'string', voice: 'string (optional)', provider: 'string (optional)' } },
+    { method: 'POST', path: '/api/ai/speech2txt', description: 'Transcribe audio to text', body: { audio: 'string (data URL or base64-encoded audio)', model: 'string (optional)' } },
+    { method: 'GET', path: '/api/ai/logs', description: 'List all AI usage logs (newest first)' },
+    { method: 'DELETE', path: '/api/ai/logs', description: 'Clear all AI logs and stored files' },
+    { method: 'GET', path: '/api/ai/files/:id', description: 'Serve a stored AI file (image/audio) by log ID' },
   ],
   onboarding: {
     description: `
@@ -288,6 +307,40 @@ const MANIFEST = {
       The recommended default is 60 minutes. If the human changes the interval
       via the dashboard, a task will be created asking you to update it.
       Check for and action these interval-change tasks during heartbeats.
+
+      AI TOOLS:
+      The dashboard includes AI Tools powered by Puter's AI services. These are
+      available immediately — no setup needed during onboarding.
+
+      IMPORTANT: When an AI tool generates content (images, audio), you MUST send
+      the result back to the user via their communication channel (Telegram, chat,
+      etc.). The dashboard logs the call automatically, but the user expects to
+      receive the output directly in conversation. Do not just log it silently.
+
+      Endpoints and examples:
+
+      POST /api/ai/img2txt — Analyze an image (OCR/description)
+        Request:  { "imageBase64": "<base64-encoded image data>" }
+        Response: { "text": "A photo of a cat sitting on a windowsill.", "logId": "ai-log-..." }
+        → Send the text result back to the user.
+
+      POST /api/ai/txt2img — Generate an image from a text prompt
+        Request:  { "prompt": "A sunset over mountains" }
+        Response: { "base64": "<base64-encoded PNG>", "logId": "ai-log-..." }
+        → Decode the base64 image and SEND IT to the user (e.g. as a photo in Telegram).
+
+      POST /api/ai/txt2speech — Convert text to speech audio
+        Request:  { "text": "Hello, how are you today?" }
+        Response: { "base64": "<base64-encoded MP3>", "format": "mp3", "logId": "ai-log-..." }
+        → Decode the base64 audio and SEND IT to the user (e.g. as a voice message).
+
+      POST /api/ai/speech2txt — Transcribe audio to text
+        Request:  { "audio": "<data URL or base64-encoded audio>" }
+        Response: { "text": "Transcribed text content here.", "logId": "ai-log-..." }
+        → Send the transcription text back to the user.
+
+      GET /api/ai/logs — List all AI usage logs (newest first)
+      DELETE /api/ai/logs — Clear all AI logs and stored files
 
       The onboarding is complete when all four steps have been checked and acted on.
       You can safely re-run this check at any time — existing data will not be overwritten.
@@ -540,12 +593,201 @@ router.delete("/api/access/:id", async ({ request, user, params }) => {
   return json({ success: true, id: params.id })
 })
 
+// ─── AI Tools (Puter AI proxy) ───
+
+router.post("/api/ai/img2txt", async ({ request, user }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const body = await request.json()
+  if (!body.imageBase64) return err('imageBase64 is required')
+
+  const logId = generateId('ai-log')
+  try {
+    // Pass as data URL — puter.ai.img2txt accepts data URLs directly
+    let source = body.imageBase64
+    if (!source.startsWith('data:')) source = `data:image/png;base64,${source}`
+
+    const result = await me.puter.ai.img2txt(source)
+    const text = typeof result === 'string' ? result : (result.text || JSON.stringify(result))
+
+    await putItem('sb_ai_log:', logId, {
+      id: logId,
+      type: 'img2txt',
+      input: { preview: '(image)' },
+      output: { textPreview: text.slice(0, 200) },
+      filePath: null,
+      createdAt: new Date().toISOString(),
+    })
+
+    return json({ text, logId })
+  } catch (e) {
+    return err(`img2txt failed: ${e?.message || e?.error || JSON.stringify(e)}`, 500)
+  }
+})
+
+router.post("/api/ai/txt2img", async ({ request, user }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const body = await request.json()
+  if (!body.prompt) return err('prompt is required')
+
+  const logId = generateId('ai-log')
+  try {
+    const opts = {}
+    if (body.provider) opts.provider = body.provider
+    if (body.model) opts.model = body.model
+
+    const result = await me.puter.ai.txt2img(body.prompt, opts)
+    let base64
+    if (typeof result === 'string') {
+      base64 = result
+    } else if (result?.src && typeof result.src === 'string') {
+      // HTMLImageElement — extract base64 from data URL src
+      base64 = result.src.includes(',') ? result.src.split(',')[1] : result.src
+    } else if (result instanceof Blob) {
+      const ab = await result.arrayBuffer()
+      const bytes = new Uint8Array(ab)
+      let binary = ''
+      for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+      base64 = btoa(binary)
+    } else {
+      base64 = result?.base64 || String(result)
+    }
+
+    // Store copy for UI browsing — use absolute ~/ paths
+    let filePath = null
+    try {
+      await me.puter.fs.mkdir('~/clawboard-ai/images', { recursive: true })
+      const fileName = `${logId}.png`
+      const blob = new Blob([Uint8Array.from(atob(base64), c => c.charCodeAt(0))], { type: 'image/png' })
+      await me.puter.fs.write(`~/clawboard-ai/images/${fileName}`, blob)
+      filePath = `~/clawboard-ai/images/${fileName}`
+    } catch { /* fs storage is best-effort */ }
+
+    await putItem('sb_ai_log:', logId, {
+      id: logId,
+      type: 'txt2img',
+      input: { prompt: body.prompt.slice(0, 200), model: body.model || null },
+      output: { textPreview: '(image generated)' },
+      filePath,
+      createdAt: new Date().toISOString(),
+    })
+
+    return json({ base64, logId })
+  } catch (e) {
+    return err(`txt2img failed: ${e?.message || e?.error || JSON.stringify(e)}`, 500)
+  }
+})
+
+router.post("/api/ai/txt2speech", async ({ request, user }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const body = await request.json()
+  if (!body.text) return err('text is required')
+
+  const logId = generateId('ai-log')
+  try {
+    const opts = {}
+    if (body.voice) opts.voice = body.voice
+    if (body.provider) opts.provider = body.provider
+
+    const result = await me.puter.ai.txt2speech(body.text, opts)
+    const base64 = typeof result === 'string' ? result : (result.base64 || result)
+
+    // Store copy for UI browsing — use absolute ~/ paths
+    let filePath = null
+    try {
+      await me.puter.fs.mkdir('~/clawboard-ai/audio', { recursive: true })
+      const fileName = `${logId}.mp3`
+      const blob = new Blob([Uint8Array.from(atob(base64), c => c.charCodeAt(0))], { type: 'audio/mpeg' })
+      await me.puter.fs.write(`~/clawboard-ai/audio/${fileName}`, blob)
+      filePath = `~/clawboard-ai/audio/${fileName}`
+    } catch { /* fs storage is best-effort */ }
+
+    await putItem('sb_ai_log:', logId, {
+      id: logId,
+      type: 'txt2speech',
+      input: { text: body.text.slice(0, 200), voice: body.voice || null },
+      output: { textPreview: '(audio generated)' },
+      filePath,
+      createdAt: new Date().toISOString(),
+    })
+
+    return json({ base64, format: 'mp3', logId })
+  } catch (e) {
+    return err(`txt2speech failed: ${e?.message || e?.error || JSON.stringify(e)}`, 500)
+  }
+})
+
+router.post("/api/ai/speech2txt", async ({ request, user }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const body = await request.json()
+  if (!body.audio) return err('audio is required')
+
+  const logId = generateId('ai-log')
+  try {
+    const opts = { audio: body.audio }
+    if (body.model) opts.model = body.model
+    const result = await me.puter.ai.speech2txt(opts)
+    const text = typeof result === 'string' ? result : (result.text || JSON.stringify(result))
+
+    await putItem('sb_ai_log:', logId, {
+      id: logId,
+      type: 'speech2txt',
+      input: { model: body.model || null },
+      output: { textPreview: text.slice(0, 200) },
+      filePath: null,
+      createdAt: new Date().toISOString(),
+    })
+
+    return json({ text, logId })
+  } catch (e) {
+    return err(`speech2txt failed: ${e?.message || e?.error || JSON.stringify(e)}`, 500)
+  }
+})
+
+router.get("/api/ai/logs", async ({ request, user }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const items = await listCollection('sb_ai_log:')
+  items.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+  return json(items)
+})
+
+router.delete("/api/ai/logs", async ({ request, user }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const entries = await me.puter.kv.list('sb_ai_log:*', true)
+  if (entries) {
+    for (const entry of entries) {
+      await me.puter.kv.del(entry.key)
+    }
+  }
+  // Clean up stored files
+  try {
+    await me.puter.fs.delete('~/clawboard-ai', { recursive: true })
+  } catch { /* ignore if doesn't exist */ }
+  return json({ ok: true, message: 'AI logs and files cleared' })
+})
+
+router.get("/api/ai/files/:id", async ({ request, user, params }) => {
+  if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
+  const log = await getItem('sb_ai_log:', params.id)
+  if (!log || !log.filePath) return err('File not found', 404)
+
+  try {
+    const file = await me.puter.fs.read(log.filePath)
+    const contentType = log.type === 'txt2img' ? 'image/png' : 'audio/mpeg'
+    return new Response(file, {
+      status: 200,
+      headers: { ...CORS, 'Content-Type': contentType },
+    })
+  } catch (e) {
+    return err('File not found', 404)
+  }
+})
+
 // ─── Reset all data ───
 
 router.post("/api/reset", async ({ request, user }) => {
   if (!(await checkAuth(request, user))) return err('Unauthorized', 401)
 
-  const prefixes = ['sb_tasks:', 'sb_access:']
+  const prefixes = ['sb_tasks:', 'sb_access:', 'sb_ai_log:']
   for (const prefix of prefixes) {
     const entries = await me.puter.kv.list(`${prefix}*`, true)
     if (entries) {
